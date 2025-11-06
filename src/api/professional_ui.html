@@ -717,16 +717,99 @@
                 'No threats detected. Content appears safe for processing.';
             document.getElementById('explanation').textContent = explanation;
 
-            // Recommendation
-            const recommendations = analysis.recommendations || [];
-            const recommendation = recommendations.length > 0 ? recommendations[0] : 'Content is compliant and safe to process.';
-            document.getElementById('recommendation').textContent = recommendation;
+            // Build dynamic recommendations
+            const recommendations = buildDynamicRecommendations(analysis);
+            document.getElementById('recommendation').innerHTML = recommendations;
 
             // Display detailed detection breakdown
             displayDetectionBreakdown(analysis);
 
             // Update stats after analysis
             updateStats();
+        }
+
+        function buildDynamicRecommendations(analysis) {
+            let recommendations = [];
+            
+            // Check if content is compliant
+            if (analysis.is_compliant) {
+                return '<strong>✅ ALLOW:</strong> Content is compliant and safe to process. No policy violations detected.';
+            }
+            
+            // Jailbreak Detection
+            const jbDetection = analysis.detections && analysis.detections.jailbreak;
+            if (jbDetection && jbDetection.detected) {
+                const severity = jbDetection.severity || 'low';
+                if (severity === 'critical') {
+                    recommendations.push('🚫 <strong>BLOCK IMMEDIATELY:</strong> Critical jailbreak attempt detected. Do not process this request.');
+                } else if (severity === 'high') {
+                    recommendations.push('⛔ <strong>BLOCK:</strong> High-risk jailbreak attempt. Reject this request and log the attempt.');
+                } else if (severity === 'moderate') {
+                    recommendations.push('⚠️ <strong>FLAG:</strong> Moderate jailbreak risk detected. Review before processing.');
+                } else {
+                    recommendations.push('⚡ <strong>CAUTION:</strong> Low-level jailbreak indicators detected. Monitor this request.');
+                }
+            }
+            
+            // Context-Specific Threats
+            if (analysis.context_threats && analysis.context_threats.length > 0) {
+                const threats = analysis.context_threats;
+                threats.forEach(threat => {
+                    const category = threat.category.replace(/_/g, ' ').toLowerCase();
+                    if (threat.severity === 'critical' || threat.severity === 'high') {
+                        recommendations.push(`🚨 <strong>BLOCK:</strong> ${category} detected with ${threat.severity} severity. Immediate action required.`);
+                    } else {
+                        recommendations.push(`⚠️ <strong>REVIEW:</strong> Potential ${category} detected. Manual review recommended.`);
+                    }
+                });
+            }
+            
+            // Privacy Violations
+            const privacy = analysis.detections && analysis.detections.privacy;
+            if (privacy && privacy.detected && privacy.violations && privacy.violations.length > 0) {
+                const violationTypes = [...new Set(privacy.violations.map(v => v.category))];
+                if (privacy.risk_level === 'high' || privacy.risk_level === 'critical') {
+                    recommendations.push(`🔒 <strong>REDACT:</strong> High-risk privacy violations detected (${violationTypes.join(', ')}). Remove or mask PII before processing.`);
+                } else {
+                    recommendations.push(`📋 <strong>SANITIZE:</strong> PII detected (${violationTypes.join(', ')}). Consider anonymizing data.`);
+                }
+            }
+            
+            // OpenAI Moderation
+            const openai = analysis.detections && analysis.detections.openai;
+            if (openai && openai.flagged && openai.flagged_categories && openai.flagged_categories.length > 0) {
+                const categories = openai.flagged_categories.map(c => c.replace(/\//g, '/')).join(', ');
+                recommendations.push(`🛡️ <strong>FILTER:</strong> Content flagged by OpenAI moderation for: ${categories}. Apply content filtering.`);
+            }
+            
+            // Token Anomalies
+            const tokenAnomalies = analysis.detections && analysis.detections.token_anomalies;
+            if (tokenAnomalies && tokenAnomalies.detected) {
+                recommendations.push('🔍 <strong>INSPECT:</strong> Token anomalies detected. Content may contain obfuscation techniques.');
+            }
+            
+            // Overall Risk Score based recommendation
+            if (analysis.overall_risk_score > 0.8) {
+                recommendations.push(`⚡ <strong>HIGH RISK:</strong> Overall risk score ${(analysis.overall_risk_score * 100).toFixed(0)}%. Strong action recommended.`);
+            } else if (analysis.overall_risk_score > 0.5) {
+                recommendations.push(`⚡ <strong>MODERATE RISK:</strong> Overall risk score ${(analysis.overall_risk_score * 100).toFixed(0)}%. Enhanced monitoring suggested.`);
+            }
+            
+            // If we have recommendations from the backend, include them too
+            if (analysis.recommendations && analysis.recommendations.length > 0) {
+                analysis.recommendations.forEach(rec => {
+                    if (!recommendations.some(r => r.includes(rec))) {
+                        recommendations.push('💡 ' + rec);
+                    }
+                });
+            }
+            
+            // Default if no specific recommendations
+            if (recommendations.length === 0) {
+                return '<strong>ℹ️ INFO:</strong> Content flagged but no specific violations identified. Manual review suggested.';
+            }
+            
+            return recommendations.join('<br>');
         }
 
         function displayDetectionBreakdown(analysis) {
