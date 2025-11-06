@@ -918,317 +918,214 @@
         }
 
         function displayDetectionBreakdown(analysis) {
-            const detectionSection = document.getElementById('detectionDetailsSection');
-            const categoriesContainer = document.getElementById('detectionCategories');
-            
-            let html = '';
-
-            // Jailbreak Detection - ALWAYS SHOW
-            const jb = (analysis.detections && analysis.detections.jailbreak) || { detected: false, confidence: 0 };
-            {
-                const isDetected = jb.detected || false;
-                const severity = jb.severity || 'low';
-                
-                // Dynamic colors and icons based on severity
-                const severityConfig = {
-                    'critical': { icon: '☠️', color: '#dc2626', bgGradient: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)', borderColor: '#ef4444' },
-                    'high': { icon: '🚨', color: '#ea580c', bgGradient: 'linear-gradient(135deg, #fed7aa 0%, #fdba74 100%)', borderColor: '#f97316' },
-                    'moderate': { icon: '⚠️', color: '#d97706', bgGradient: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)', borderColor: '#f59e0b' },
-                    'low': { icon: '💡', color: '#0891b2', bgGradient: 'linear-gradient(135deg, #cffafe 0%, #a5f3fc 100%)', borderColor: '#06b6d4' }
-                };
-                const config = severityConfig[severity] || severityConfig['low'];
-                
-                html += `
-                    <div class="detection-category ${isDetected ? 'detected' : ''}" style="${isDetected ? `border-color: ${config.borderColor};` : ''}">
-                        <div class="detection-header">
-                            <div class="detection-title">
-                                <div class="detection-icon ${isDetected ? 'threat' : 'safe'}">
-                                    ${isDetected ? config.icon : '✓'}
-                                </div>
-                                <span>Jailbreak Detection</span>
-                            </div>
-                            <span class="detection-badge ${isDetected ? 'badge-detected' : 'badge-clear'}" style="${isDetected ? `background: ${config.color}15; color: ${config.color};` : ''}">
-                                ${isDetected ? severity.toUpperCase() + ' RISK' : 'CLEAR'}
-                            </span>
-                        </div>
-                        <div class="detection-body">
-                            ${isDetected ? `
-                                <div style="background: ${config.bgGradient}; border-left: 4px solid ${config.borderColor}; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
-                                    <h4 style="margin: 0 0 0.75rem 0; font-size: 1rem; display: flex; align-items: center; gap: 0.5rem; color: ${config.color};">
-                                        ${config.icon} Jailbreak Detected - ${severity.toUpperCase()} Severity
-                                    </h4>
-                                    <p><strong>Confidence:</strong> ${(jb.confidence * 100).toFixed(1)}%</p>
-                                    ${jb.techniques && jb.techniques.length > 0 ? `
-                                        <p><strong>Techniques Used:</strong></p>
-                                        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem;">
-                                            ${jb.techniques.map(t => `
-                                                <span style="background: rgba(0,0,0,0.1); padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">
-                                                    ${t.replace(/_/g, ' ').toUpperCase()}
-                                                </span>
-                                            `).join('')}
-                                        </div>
-                                    ` : ''}
-                                    ${jb.patterns && jb.patterns.length > 0 ? `
-                                        <p style="margin-top: 0.75rem;"><strong>Matched Patterns:</strong></p>
-                                        <div style="margin-top: 0.5rem;">
-                                            ${jb.patterns.map(p => `<span class="pattern-chip">${p}</span>`).join('')}
-                                        </div>
-                                    ` : ''}
-                                </div>
-                                <p style="margin-top: 0.5rem; font-size: 0.875rem; line-height: 1.6;">${jb.explanation}</p>
-                            ` : `
-                                <p>✅ No jailbreak attempts detected. Content appears to be a legitimate request.</p>
-                            `}
-                            <div class="confidence-bar">
-                                <div class="confidence-fill" style="width: ${(jb.confidence * 100).toFixed(1)}%; background: ${isDetected ? config.color : '#10b981'};"></div>
-                            </div>
-                        </div>
+    const detectionSection = document.getElementById('detectionDetailsSection');
+    const categoriesContainer = document.getElementById('detectionCategories');
+    
+    let violationsHTML = '';
+    let violationCount = 0;
+    
+    // Jailbreak Detection
+    const jb = (analysis.detections && analysis.detections.jailbreak) || {};
+    if (jb.detected) {
+        violationCount++;
+        const severity = jb.severity || 'low';
+        const severityConfig = {
+            'critical': { icon: '☠️', color: '#dc2626', bgGradient: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)', borderColor: '#ef4444' },
+            'high': { icon: '🚨', color: '#ea580c', bgGradient: 'linear-gradient(135deg, #fed7aa 0%, #fdba74 100%)', borderColor: '#f97316' },
+            'moderate': { icon: '⚠️', color: '#d97706', bgGradient: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)', borderColor: '#f59e0b' },
+            'low': { icon: '💡', color: '#0891b2', bgGradient: 'linear-gradient(135deg, #cffafe 0%, #a5f3fc 100%)', borderColor: '#06b6d4' }
+        };
+        const config = severityConfig[severity] || severityConfig['low'];
+        
+        violationsHTML += `
+            <div style="background: ${config.bgGradient}; border-left: 4px solid ${config.borderColor}; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem;">
+                <h4 style="margin: 0 0 1rem 0; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem; color: ${config.color};">
+                    ${config.icon} Jailbreak Detection - ${severity.toUpperCase()} Severity
+                </h4>
+                <p><strong>Confidence:</strong> ${(jb.confidence * 100).toFixed(1)}%</p>
+                ${jb.techniques && jb.techniques.length > 0 ? `
+                    <p style="margin-top: 0.5rem;"><strong>Techniques:</strong></p>
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem;">
+                        ${jb.techniques.map(t => `<span style="background: rgba(0,0,0,0.1); padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">${t.replace(/_/g, ' ').toUpperCase()}</span>`).join('')}
                     </div>
-                `;
-            }
-
-            // Context-Specific Threats - ALWAYS SHOW
-            {
-                const threats = analysis.context_threats || [];
-                const hasThreats = threats.length > 0;
-                
-                // Determine highest severity
-                let highestSeverity = 'low';
-                let borderColor = '#e5e7eb';
-                if (hasThreats) {
-                    const severityLevels = { 'critical': 4, 'high': 3, 'moderate': 2, 'low': 1 };
-                    threats.forEach(t => {
-                        if (severityLevels[t.severity] > severityLevels[highestSeverity]) {
-                            highestSeverity = t.severity;
-                        }
-                    });
-                    const severityColors = { 'critical': '#dc2626', 'high': '#ea580c', 'moderate': '#f59e0b', 'low': '#06b6d4' };
-                    borderColor = severityColors[highestSeverity];
-                }
-                
-                html += `
-                    <div class="detection-category ${hasThreats ? 'detected' : ''}" style="${hasThreats ? `border-color: ${borderColor};` : ''}">
-                        <div class="detection-header">
-                            <div class="detection-title">
-                                <div class="detection-icon ${hasThreats ? 'threat' : 'safe'}">
-                                    ${hasThreats ? '🚨' : '✓'}
-                                </div>
-                                <span>Context-Specific Threats</span>
-                            </div>
-                            <span class="detection-badge ${hasThreats ? 'badge-detected' : 'badge-clear'}" style="${hasThreats ? `background: ${borderColor}15; color: ${borderColor};` : ''}">
-                                ${hasThreats ? threats.length + ' THREAT' + (threats.length > 1 ? 'S' : '') : 'CLEAR'}
-                            </span>
-                        </div>
-                        <div class="detection-body">
-                            ${hasThreats ? `
-                                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                                    ${threats.map(t => {
-                                        const sevColors = { 'critical': '#dc2626', 'high': '#ea580c', 'moderate': '#f59e0b', 'low': '#06b6d4' };
-                                        const sevIcons = { 'critical': '☠️', 'high': '🔥', 'moderate': '⚠️', 'low': '💡' };
-                                        const color = sevColors[t.severity] || '#6b7280';
-                                        const icon = sevIcons[t.severity] || 'ℹ️';
-                                        return `
-                                            <div style="background: ${color}08; border-left: 3px solid ${color}; padding: 0.75rem; border-radius: 6px;">
-                                                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
-                                                    <span style="font-size: 1.1rem;">${icon}</span>
-                                                    <strong style="color: ${color};">${t.category.replace(/_/g, ' ').toUpperCase()}</strong>
-                                                </div>
-                                                <p style="margin: 0; font-size: 0.875rem; color: #4b5563;">
-                                                    <strong>Severity:</strong> ${t.severity.toUpperCase()} | 
-                                                    <strong>Indicators:</strong> ${t.indicators}
-                                                </p>
-                                            </div>
-                                        `;
-                                    }).join('')}
-                                </div>
-                            ` : `
-                                <p>✅ No specific threats detected across all monitored categories.</p>
-                            `}
-                        </div>
+                ` : ''}
+                ${jb.patterns && jb.patterns.length > 0 ? `
+                    <p style="margin-top: 0.75rem;"><strong>Matched Patterns:</strong></p>
+                    <div style="margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.25rem;">
+                        ${jb.patterns.map(p => `<span style="background: rgba(0,0,0,0.1); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-family: monospace;">${p}</span>`).join('')}
                     </div>
-                `;
+                ` : ''}
+                <p style="margin-top: 1rem; font-size: 0.875rem; line-height: 1.6; border-top: 1px solid rgba(0,0,0,0.1); padding-top: 1rem;">${jb.explanation}</p>
+            </div>
+        `;
+    }
+    
+    // Context-Specific Threats
+    const threats = analysis.context_threats || [];
+    if (threats.length > 0) {
+        violationCount++;
+        const severityLevels = { 'critical': 4, 'high': 3, 'moderate': 2, 'low': 1 };
+        let highestSeverity = 'low';
+        threats.forEach(t => {
+            if (severityLevels[t.severity] > severityLevels[highestSeverity]) {
+                highestSeverity = t.severity;
             }
-
-            // Privacy Violations - ALWAYS SHOW
-            {
-                const privacy = (analysis.detections && analysis.detections.privacy) || { detected: false, violations: [], risk_level: 'low', privacy_score: 0 };
-                const hasViolations = privacy.detected && privacy.violations && privacy.violations.length > 0;
-                
-                // Dynamic styling based on risk level
-                const riskLevel = privacy.risk_level || 'low';
-                const riskConfig = {
-                    'critical': { color: '#dc2626', icon: '🚫', bg: '#fee2e2' },
-                    'high': { color: '#ea580c', icon: '🔒', bg: '#fed7aa' },
-                    'medium': { color: '#f59e0b', icon: '⚠️', bg: '#fef3c7' },
-                    'low': { color: '#06b6d4', icon: '🛈', bg: '#cffafe' }
-                };
-                const config = riskConfig[riskLevel] || riskConfig['low'];
-                
-                html += `
-                    <div class="detection-category ${hasViolations ? 'detected' : ''}" style="${hasViolations ? `border-color: ${config.color};` : ''}">
-                        <div class="detection-header">
-                            <div class="detection-title">
-                                <div class="detection-icon ${hasViolations ? 'threat' : 'safe'}">
-                                    ${hasViolations ? config.icon : '✓'}
+        });
+        const severityColors = { 'critical': '#dc2626', 'high': '#ea580c', 'moderate': '#f59e0b', 'low': '#06b6d4' };
+        const sevIcons = { 'critical': '☠️', 'high': '🔥', 'moderate': '⚠️', 'low': '💡' };
+        const borderColor = severityColors[highestSeverity];
+        const mainIcon = sevIcons[highestSeverity];
+        
+        violationsHTML += `
+            <div style="background: ${borderColor}08; border-left: 4px solid ${borderColor}; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem;">
+                <h4 style="margin: 0 0 1rem 0; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem; color: ${borderColor};">
+                    🚨 Context-Specific Threats Detected (${threats.length})
+                </h4>
+                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                    ${threats.map(t => {
+                        const color = severityColors[t.severity];
+                        const icon = sevIcons[t.severity];
+                        return `
+                            <div style="background: white; border-left: 3px solid ${color}; padding: 0.75rem; border-radius: 6px;">
+                                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                    <span style="font-size: 1.1rem;">${icon}</span>
+                                    <strong style="color: ${color};">${t.category.replace(/_/g, ' ').toUpperCase()}</strong>
                                 </div>
-                                <span>Privacy Detection</span>
+                                <p style="margin: 0; font-size: 0.875rem; color: #4b5563;">
+                                    <strong>Severity:</strong> ${t.severity.toUpperCase()} | 
+                                    <strong>Indicators:</strong> ${t.indicators}
+                                </p>
                             </div>
-                            <span class="detection-badge ${hasViolations ? 'badge-detected' : 'badge-clear'}" style="${hasViolations ? `background: ${config.color}15; color: ${config.color};` : ''}">
-                                ${hasViolations ? privacy.violations.length + ' PII' : 'CLEAR'}
-                            </span>
-                        </div>
-                        <div class="detection-body">
-                            ${hasViolations ? `
-                                <div style="background: ${config.bg}; padding: 1rem; border-radius: 8px; border-left: 3px solid ${config.color}; margin-bottom: 0.75rem;">
-                                    <p style="margin: 0 0 0.5rem 0;"><strong style="color: ${config.color};">Risk Level:</strong> ${riskLevel.toUpperCase()}</p>
-                                    <p style="margin: 0;"><strong>Privacy Score:</strong> ${(privacy.privacy_score * 100).toFixed(1)}%</p>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    }
+    
+    // Privacy Violations
+    const privacy = (analysis.detections && analysis.detections.privacy) || {};
+    if (privacy.detected && privacy.violations && privacy.violations.length > 0) {
+        violationCount++;
+        const riskLevel = privacy.risk_level || 'low';
+        const riskConfig = {
+            'critical': { color: '#dc2626', icon: '🚫', bg: '#fee2e2' },
+            'high': { color: '#ea580c', icon: '🔒', bg: '#fed7aa' },
+            'medium': { color: '#f59e0b', icon: '⚠️', bg: '#fef3c7' },
+            'low': { color: '#06b6d4', icon: '🛈', bg: '#cffafe' }
+        };
+        const config = riskConfig[riskLevel] || riskConfig['low'];
+        
+        violationsHTML += `
+            <div style="background: ${config.bg}; border-left: 4px solid ${config.color}; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem;">
+                <h4 style="margin: 0 0 1rem 0; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem; color: ${config.color};">
+                    ${config.icon} Privacy Violations Detected (${privacy.violations.length})
+                </h4>
+                <p><strong style="color: ${config.color};">Risk Level:</strong> ${riskLevel.toUpperCase()}</p>
+                <p><strong>Privacy Score:</strong> ${(privacy.privacy_score * 100).toFixed(1)}%</p>
+                <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1rem;">
+                    ${privacy.violations.map(v => {
+                        const categoryIcons = {
+                            'EMAIL': '📧', 'PHONE': '📞', 'SSN': '🆔', 'CREDIT_CARD': '💳',
+                            'ADDRESS': '🏠', 'NAME': '👤', 'IP_ADDRESS': '🌐', 'DATE_OF_BIRTH': '🎂'
+                        };
+                        const icon = categoryIcons[v.category] || '🔒';
+                        const confidence = (v.confidence * 100).toFixed(0);
+                        const confColor = confidence > 80 ? '#dc2626' : confidence > 60 ? '#f59e0b' : '#06b6d4';
+                        return `
+                            <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.5rem; background: white; border-radius: 6px; border: 1px solid #e5e7eb;">
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <span style="font-size: 1.1rem;">${icon}</span>
+                                    <strong>${v.category.replace(/_/g, ' ')}:</strong>
+                                    <code style="background: #f3f4f6; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.875rem;">${v.masked_value}</code>
                                 </div>
-                                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                                    ${privacy.violations.map(v => {
-                                        const categoryIcons = {
-                                            'EMAIL': '📧',
-                                            'PHONE': '📞',
-                                            'SSN': '🆔',
-                                            'CREDIT_CARD': '💳',
-                                            'ADDRESS': '🏠',
-                                            'NAME': '👤',
-                                            'IP_ADDRESS': '🌐',
-                                            'DATE_OF_BIRTH': '🎂'
-                                        };
-                                        const icon = categoryIcons[v.category] || '🔒';
-                                        const confidence = (v.confidence * 100).toFixed(0);
-                                        const confColor = confidence > 80 ? '#dc2626' : confidence > 60 ? '#f59e0b' : '#06b6d4';
-                                        return `
-                                            <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.5rem; background: white; border-radius: 6px; border: 1px solid #e5e7eb;">
-                                                <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                                    <span style="font-size: 1.1rem;">${icon}</span>
-                                                    <strong>${v.category.replace(/_/g, ' ')}:</strong>
-                                                    <code style="background: #f3f4f6; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.875rem;">${v.masked_value}</code>
-                                                </div>
-                                                <span style="background: ${confColor}15; color: ${confColor}; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">
-                                                    ${confidence}%
-                                                </span>
-                                            </div>
-                                        `;
-                                    }).join('')}
-                                </div>
-                            ` : `
-                                <p>✅ No privacy violations detected. No personal identifiable information found.</p>
-                            `}
-                        </div>
+                                <span style="background: ${confColor}15; color: ${confColor}; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">${confidence}%</span>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    }
+    
+    // Token Anomalies
+    const tokenAnomalies = (analysis.detections && analysis.detections.token_anomalies) || {};
+    if (tokenAnomalies.detected) {
+        violationCount++;
+        violationsHTML += `
+            <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem;">
+                <h4 style="margin: 0 0 1rem 0; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem; color: #d97706;">
+                    🔍 Token Anomalies Detected (${tokenAnomalies.anomalies.length})
+                </h4>
+                <p><strong>Anomaly Score:</strong> ${(tokenAnomalies.score * 100).toFixed(1)}%</p>
+                <p style="margin-top: 0.5rem;">Detected unusual patterns, encoding tricks, or obfuscation techniques that may be attempting to bypass content filters.</p>
+                ${tokenAnomalies.anomalies && tokenAnomalies.anomalies.length > 0 ? `
+                    <div style="margin-top: 0.75rem; display: flex; flex-wrap: wrap; gap: 0.25rem;">
+                        ${tokenAnomalies.anomalies.slice(0, 5).map(a => `
+                            <span style="background: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-family: monospace;">${a.type || 'anomaly'}</span>
+                        `).join('')}
                     </div>
-                `;
-            }
+                ` : ''}
+            </div>
+        `;
+    }
+    
+    // Semantic Toxicity
+    const sem = (analysis.detections && analysis.detections.semantic_analysis) || {};
+    if (sem.is_toxic) {
+        violationCount++;
+        violationsHTML += `
+            <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem;">
+                <h4 style="margin: 0 0 1rem 0; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem; color: #dc2626;">
+                    ☣️ Semantic Toxicity Detected
+                </h4>
+                <p><strong>Confidence:</strong> ${(sem.confidence * 100).toFixed(1)}%</p>
+                ${sem.explanation ? `<p style="margin-top: 0.5rem;">${sem.explanation}</p>` : ''}
+            </div>
+        `;
+    }
+    
+    // OpenAI Moderation
+    const mod = (analysis.detections && analysis.detections.openai) || {};
+    if (mod.flagged && mod.flagged_categories && mod.flagged_categories.length > 0) {
+        violationCount++;
+        violationsHTML += `
+            <div style="background: #eff6ff; border-left: 4px solid #3b82f6; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem;">
+                <h4 style="margin: 0 0 1rem 0; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem; color: #2563eb;">
+                    🛡️ OpenAI Moderation Flagged
+                </h4>
+                <p><strong>Flagged Categories:</strong></p>
+                <ul style="margin: 0.5rem 0 0 1.25rem;">
+                    ${mod.flagged_categories.map(cat => `<li style="margin-bottom: 0.25rem;">${cat.toUpperCase()}</li>`).join('')}
+                </ul>
+            </div>
+        `;
+    }
+    
+    // Display results
+    if (violationCount > 0) {
+        categoriesContainer.innerHTML = `
+            <div style="background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                <h3 style="margin: 0 0 1.5rem 0; font-size: 1.25rem; font-weight: 700; color: #1f2937;">
+                    ${violationCount} Violation${violationCount > 1 ? 's' : ''} Detected
+                </h3>
+                ${violationsHTML}
+            </div>
+        `;
+        detectionSection.style.display = 'block';
+    } else {
+        categoriesContainer.innerHTML = `
+            <div style="background: #d1fae5; border-left: 4px solid #10b981; padding: 1.5rem; border-radius: 8px;">
+                <h4 style="margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem; color: #065f46;">
+                    ✅ No Violations Detected
+                </h4>
+                <p style="margin: 0.5rem 0 0 0; color: #047857;">Content passed all security and compliance checks.</p>
+            </div>
+        `;
+        detectionSection.style.display = 'block';
+    }
+}
 
-            // Semantic Toxicity - ALWAYS SHOW
-            {
-                const sem = (analysis.detections && analysis.detections.semantic_analysis) || { is_toxic: false, confidence: 0 };
-                const isToxic = sem.is_toxic;
-                
-                html += `
-                    <div class="detection-category ${isToxic ? 'detected' : ''}">
-                        <div class="detection-header">
-                            <div class="detection-title">
-                                <div class="detection-icon ${isToxic ? 'threat' : 'safe'}">
-                                    ${isToxic ? '☣️' : '✓'}
-                                </div>
-                                <span>Semantic Toxicity</span>
-                            </div>
-                            <span class="detection-badge ${isToxic ? 'badge-detected' : 'badge-clear'}">
-                                ${isToxic ? 'TOXIC' : 'CLEAN'}
-                            </span>
-                        </div>
-                        <div class="detection-body">
-                            ${isToxic ? `
-                                <p><strong>Confidence:</strong> ${(sem.confidence * 100).toFixed(1)}%</p>
-                                <p>${sem.explanation}</p>
-                            ` : `
-                                <p>Content is semantically appropriate and non-toxic.</p>
-                            `}
-                            <div class="confidence-bar">
-                                <div class="confidence-fill" style="width: ${(sem.confidence * 100).toFixed(1)}%"></div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-
-            // Token Anomalies - ALWAYS SHOW
-            {
-                const tokenAnomalies = (analysis.detections && analysis.detections.token_anomalies) || { detected: false, anomalies: [], score: 0 };
-                const hasAnomalies = tokenAnomalies.detected;
-                
-                html += `
-                    <div class="detection-category ${hasAnomalies ? 'detected' : ''}" style="${hasAnomalies ? 'border-color: #f59e0b;' : ''}">
-                        <div class="detection-header">
-                            <div class="detection-title">
-                                <div class="detection-icon ${hasAnomalies ? 'threat' : 'safe'}">
-                                    ${hasAnomalies ? '🔍' : '✓'}
-                                </div>
-                                <span>Token Anomalies</span>
-                            </div>
-                            <span class="detection-badge ${hasAnomalies ? 'badge-detected' : 'badge-clear'}" style="${hasAnomalies ? 'background: #f59e0b15; color: #f59e0b;' : ''}">
-                                ${hasAnomalies ? tokenAnomalies.anomalies.length + ' FOUND' : 'CLEAR'}
-                            </span>
-                        </div>
-                        <div class="detection-body">
-                            ${hasAnomalies ? `
-                                <p><strong>Anomaly Score:</strong> ${(tokenAnomalies.score * 100).toFixed(1)}%</p>
-                                <p>Detected unusual patterns, encoding tricks, or obfuscation techniques that may be attempting to bypass content filters.</p>
-                                ${tokenAnomalies.anomalies && tokenAnomalies.anomalies.length > 0 ? `
-                                    <div style="margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.25rem;">
-                                        ${tokenAnomalies.anomalies.slice(0, 5).map(a => `
-                                            <span style="background: #fef3c7; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-family: monospace;">${a.type || 'anomaly'}</span>
-                                        `).join('')}
-                                    </div>
-                                ` : ''}
-                            ` : `
-                                <p>✅ No token anomalies detected. Content uses standard encoding.</p>
-                            `}
-                        </div>
-                    </div>
-                `;
-            }
-
-            // OpenAI Moderation - ALWAYS SHOW
-            {
-                const mod = (analysis.detections && analysis.detections.openai) || { flagged: false, flagged_categories: [] };
-                const flagged = mod.flagged;
-                
-                html += `
-                    <div class="detection-category ${flagged ? 'detected' : ''}">
-                        <div class="detection-header">
-                            <div class="detection-title">
-                                <div class="detection-icon ${flagged ? 'threat' : 'safe'}">
-                                    ${flagged ? '🛡️' : '✓'}
-                                </div>
-                                <span>OpenAI Moderation</span>
-                            </div>
-                            <span class="detection-badge ${flagged ? 'badge-detected' : 'badge-clear'}">
-                                ${flagged ? 'FLAGGED' : 'CLEAR'}
-                            </span>
-                        </div>
-                        <div class="detection-body">
-                            ${flagged && mod.flagged_categories && mod.flagged_categories.length > 0 ? `
-                                <p><strong>Flagged Categories:</strong></p>
-                                <ul class="detection-details-list">
-                                    ${mod.flagged_categories.map(cat => `<li>${cat.toUpperCase()}</li>`).join('')}
-                                </ul>
-                            ` : `
-                                <p>Content passed OpenAI moderation checks.</p>
-                            `}
-                        </div>
-                    </div>
-                `;
-            }
-
-            if (html) {
-                categoriesContainer.innerHTML = html;
-                detectionSection.style.display = 'block';
-            } else {
-                detectionSection.style.display = 'none';
-            }
-        }
 
         function clearForm() {
             document.getElementById('promptInput').value = '';
