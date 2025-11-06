@@ -151,6 +151,10 @@ class IntegratedSystem:
             'processing_time_ms': 0
         }
         
+        # Initialize jailbreak tracking variables
+        jailbreak_detected = False
+        jailbreak_confidence = 0.0
+        
         try:
             # 1. OpenAI Moderation (Primary - Highest Accuracy)
             if self.openai_filter and self.openai_filter.enabled:
@@ -228,19 +232,32 @@ class IntegratedSystem:
             # Smart filtering: If privacy violation detected and jailbreak confidence is low/moderate,
             # suppress jailbreak detection (likely false positive from PII patterns)
             if privacy_has_violations and jailbreak_detected:
-                if jailbreak_confidence < 0.75:  # Below high confidence threshold
-                    # Check if jailbreak techniques are only encoding-related
+                if jailbreak_confidence < 0.85:  # Below high confidence threshold
+                    # Check if jailbreak techniques are only encoding-related or if there are very few techniques
                     techniques = result['detections']['jailbreak'].get('techniques', [])
-                    encoding_only = all('encoding' in t.lower() or 'obfuscation' in t.lower() for t in techniques)
                     
-                    if encoding_only:
+                    # Check if encoding/obfuscation is the dominant technique
+                    if techniques:
+                        encoding_count = sum(1 for t in techniques if 'encoding' in t.lower() or 'obfuscation' in t.lower())
+                        encoding_dominant = encoding_count > 0 and encoding_count >= len(techniques) / 2
+                    else:
+                        encoding_dominant = False
+                    
+                    # Also suppress if patterns look like PII (emails, numbers, etc.)
+                    patterns = result['detections']['jailbreak'].get('patterns', [])
+                    pii_like_patterns = any('@' in str(p) or any(c.isdigit() for c in str(p)) for p in patterns)
+                    
+                    if encoding_dominant or pii_like_patterns or not techniques:
                         # This is likely PII being flagged as obfuscation - suppress jailbreak
                         result['detections']['jailbreak']['detected'] = False
-                        result['detections']['jailbreak']['explanation'] = 'Jailbreak patterns suppressed: Low confidence detection overlapping with privacy violation (likely PII misidentification).'
+                        result['detections']['jailbreak']['severity'] = 'low'
+                        result['detections']['jailbreak']['confidence'] = 0.0
+                        result['detections']['jailbreak']['explanation'] = 'Detection suppressed: Privacy violation detected. Jailbreak patterns likely PII-related false positive.'
                         if 'jailbreak_attempt' in result['violations']:
                             result['violations'].remove('jailbreak_attempt')
-                            self.metrics['jailbreak_attempts'] -= 1
-                        logger.info("🔍 Suppressed low-confidence jailbreak detection (privacy violation detected)")
+                            self.metrics['jailbreak_attempts'] = max(0, self.metrics['jailbreak_attempts'] - 1)
+                        jailbreak_detected = False
+                        logger.info("🔍 Suppressed jailbreak detection: Privacy violation with low-confidence/encoding-based jailbreak (likely PII)")
             
             # Add jailbreak to violations if still detected after filtering
             if result['detections'].get('jailbreak', {}).get('detected'):
