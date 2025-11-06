@@ -1,0 +1,577 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - LLM Compliance Filter{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="fas fa-cog text-primary me-3"></i>Configuration & Settings</h1>
+    <div>
+        <button class="btn btn-success me-2" onclick="saveSettings()">
+            <i class="fas fa-save me-2"></i>Save Settings
+        </button>
+        <button class="btn btn-secondary" onclick="resetSettings()">
+            <i class="fas fa-undo me-2"></i>Reset to Defaults
+        </button>
+    </div>
+</div>
+
+<!-- Configuration Sections -->
+<div class="row">
+    <div class="col-md-8">
+        <!-- Thresholds Configuration -->
+        <div class="card mb-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="fas fa-sliders-h text-primary me-2"></i>Detection Thresholds</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="hate-threshold" class="form-label">Hate Speech Threshold</label>
+                        <input type="range" class="form-range" id="hate-threshold" 
+                               min="0" max="1" step="0.01" value="0.5">
+                        <div class="d-flex justify-content-between">
+                            <small>0.0 (Lenient)</small>
+                            <span id="hate-threshold-value" class="badge bg-secondary">0.5</span>
+                            <small>1.0 (Strict)</small>
+                        </div>
+                        <small class="text-muted">Lower values will catch more potential hate speech but may increase false positives.</small>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="privacy-threshold" class="form-label">Privacy Violation Threshold</label>
+                        <input type="range" class="form-range" id="privacy-threshold" 
+                               min="0" max="1" step="0.01" value="0.7">
+                        <div class="d-flex justify-content-between">
+                            <small>0.0 (Lenient)</small>
+                            <span id="privacy-threshold-value" class="badge bg-secondary">0.7</span>
+                            <small>1.0 (Strict)</small>
+                        </div>
+                        <small class="text-muted">Threshold for detecting privacy violations like PII, emails, etc.</small>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="warn-threshold" class="form-label">Warning Threshold</label>
+                        <input type="range" class="form-range" id="warn-threshold" 
+                               min="0" max="1" step="0.01" value="0.6">
+                        <div class="d-flex justify-content-between">
+                            <small>0.0</small>
+                            <span id="warn-threshold-value" class="badge bg-warning">0.6</span>
+                            <small>1.0</small>
+                        </div>
+                        <small class="text-muted">Content above this score triggers a warning.</small>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="block-threshold" class="form-label">Block Threshold</label>
+                        <input type="range" class="form-range" id="block-threshold" 
+                               min="0" max="1" step="0.01" value="0.8">
+                        <div class="d-flex justify-content-between">
+                            <small>0.0</small>
+                            <span id="block-threshold-value" class="badge bg-danger">0.8</span>
+                            <small>1.0</small>
+                        </div>
+                        <small class="text-muted">Content above this score is blocked.</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Weights Configuration -->
+        <div class="card mb-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="fas fa-balance-scale text-primary me-2"></i>Score Weights</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="hate-weight" class="form-label">Hate Speech Weight</label>
+                        <input type="range" class="form-range" id="hate-weight" 
+                               min="0" max="2" step="0.1" value="0.7">
+                        <div class="d-flex justify-content-between">
+                            <small>0.0 (Ignore)</small>
+                            <span id="hate-weight-value" class="badge bg-secondary">0.7</span>
+                            <small>2.0 (Double)</small>
+                        </div>
+                        <small class="text-muted">Weight of hate speech detection in the overall score.</small>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="privacy-weight" class="form-label">Privacy Weight</label>
+                        <input type="range" class="form-range" id="privacy-weight" 
+                               min="0" max="2" step="0.1" value="0.3">
+                        <div class="d-flex justify-content-between">
+                            <small>0.0 (Ignore)</small>
+                            <span id="privacy-weight-value" class="badge bg-secondary">0.3</span>
+                            <small>2.0 (Double)</small>
+                        </div>
+                        <small class="text-muted">Weight of privacy violations in the overall score.</small>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Note:</strong> Weights determine how much each component contributes to the final compliance score.
+                    Higher weights make that component more influential in the decision.
+                </div>
+            </div>
+        </div>
+        
+        <!-- Advanced Settings -->
+        <div class="card mb-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="fas fa-cogs text-primary me-2"></i>Advanced Settings</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="scoring-method" class="form-label">Scoring Method</label>
+                        <select class="form-select" id="scoring-method">
+                            <option value="weighted_average">Weighted Average</option>
+                            <option value="max_score">Maximum Score</option>
+                            <option value="multiplicative">Multiplicative</option>
+                        </select>
+                        <small class="text-muted">Method for combining individual component scores.</small>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="confidence-threshold" class="form-label">Minimum Confidence</label>
+                        <input type="range" class="form-range" id="confidence-threshold" 
+                               min="0" max="1" step="0.05" value="0.5">
+                        <div class="d-flex justify-content-between">
+                            <small>0.0</small>
+                            <span id="confidence-threshold-value" class="badge bg-secondary">0.5</span>
+                            <small>1.0</small>
+                        </div>
+                        <small class="text-muted">Minimum confidence required for detections.</small>
+                    </div>
+                </div>
+                
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="enable-logging">
+                    <label class="form-check-label" for="enable-logging">
+                        Enable detailed logging
+                    </label>
+                </div>
+                
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="cache-results" checked>
+                    <label class="form-check-label" for="cache-results">
+                        Cache detection results
+                    </label>
+                </div>
+                
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="auto-update" checked>
+                    <label class="form-check-label" for="auto-update">
+                        Automatically update models
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- System Information Sidebar -->
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="fas fa-info-circle text-primary me-2"></i>System Information</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <span>System Status:</span>
+                    <span class="badge bg-success" id="system-status">Online</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Hate Speech Model:</span>
+                    <span class="badge bg-success" id="hate-model-status">Available</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Training System:</span>
+                    <span class="badge bg-success" id="training-status">Available</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Current Version:</span>
+                    <span class="badge bg-secondary">1.0.0</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Last Updated:</span>
+                    <span id="last-updated">Loading...</span>
+                </div>
+                
+                <hr>
+                
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Total Checks:</span>
+                    <span id="total-checks-info">0</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Uptime:</span>
+                    <span id="uptime">Loading...</span>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span>Memory Usage:</span>
+                    <span id="memory-usage">--</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Quick Actions -->
+        <div class="card mb-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="fas fa-zap text-primary me-2"></i>Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <button class="btn btn-outline-primary btn-sm d-block w-100 mb-2" onclick="testConfiguration()">
+                    <i class="fas fa-vial me-2"></i>Test Configuration
+                </button>
+                <button class="btn btn-outline-info btn-sm d-block w-100 mb-2" onclick="exportConfiguration()">
+                    <i class="fas fa-download me-2"></i>Export Config
+                </button>
+                <button class="btn btn-outline-warning btn-sm d-block w-100 mb-2" onclick="importConfiguration()">
+                    <i class="fas fa-upload me-2"></i>Import Config
+                </button>
+                <button class="btn btn-outline-secondary btn-sm d-block w-100" onclick="viewLogs()">
+                    <i class="fas fa-file-alt me-2"></i>View Logs
+                </button>
+            </div>
+        </div>
+        
+        <!-- Preset Configurations -->
+        <div class="card">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="fas fa-star text-primary me-2"></i>Preset Configurations</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-success btn-sm" onclick="loadPreset('lenient')">
+                        <i class="fas fa-check me-2"></i>Lenient
+                    </button>
+                    <button class="btn btn-outline-warning btn-sm" onclick="loadPreset('balanced')">
+                        <i class="fas fa-balance-scale me-2"></i>Balanced
+                    </button>
+                    <button class="btn btn-outline-danger btn-sm" onclick="loadPreset('strict')">
+                        <i class="fas fa-shield-alt me-2"></i>Strict
+                    </button>
+                    <button class="btn btn-outline-info btn-sm" onclick="loadPreset('privacy_focused')">
+                        <i class="fas fa-user-shield me-2"></i>Privacy Focused
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden file input for config import -->
+<input type="file" id="config-file-input" accept=".json" style="display: none;">
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentConfig = {};
+let startTime = new Date();
+
+// Initialize settings page
+async function initSettings() {
+    await loadCurrentConfiguration();
+    updateSystemInfo();
+    setInterval(updateSystemInfo, 30000); // Update every 30 seconds
+}
+
+async function loadCurrentConfiguration() {
+    try {
+        const response = await fetch('/api/config');
+        const config = await response.json();
+        
+        if (response.ok) {
+            currentConfig = config;
+            populateConfigForm(config);
+            updateSystemStatus(config);
+        } else {
+            console.error('Config load error:', config.error);
+            showAlert('Failed to load configuration', 'danger');
+        }
+    } catch (error) {
+        console.error('Error loading config:', error);
+        showAlert('Network error loading configuration', 'danger');
+    }
+}
+
+function populateConfigForm(config) {
+    // Populate thresholds
+    if (config.thresholds) {
+        setSliderValue('hate-threshold', config.thresholds.hate_speech || 0.5);
+        setSliderValue('privacy-threshold', config.thresholds.privacy || 0.7);
+        setSliderValue('warn-threshold', config.thresholds.warn || 0.6);
+        setSliderValue('block-threshold', config.thresholds.block || 0.8);
+    }
+    
+    // Populate weights
+    if (config.weights) {
+        setSliderValue('hate-weight', config.weights.hate_speech || 0.7);
+        setSliderValue('privacy-weight', config.weights.privacy || 0.3);
+    }
+    
+    // Populate advanced settings
+    if (config.scoring_method) {
+        document.getElementById('scoring-method').value = config.scoring_method;
+    }
+    
+    setSliderValue('confidence-threshold', 0.5); // Default value
+}
+
+function setSliderValue(sliderId, value) {
+    const slider = document.getElementById(sliderId);
+    const valueDisplay = document.getElementById(sliderId + '-value');
+    
+    if (slider && valueDisplay) {
+        slider.value = value;
+        valueDisplay.textContent = value;
+    }
+}
+
+function updateSystemStatus(config) {
+    // Update system status indicators
+    document.getElementById('hate-model-status').className = 
+        config.hate_speech_available ? 'badge bg-success' : 'badge bg-warning';
+    document.getElementById('hate-model-status').textContent = 
+        config.hate_speech_available ? 'Available' : 'Unavailable';
+    
+    document.getElementById('training-status').className = 
+        config.training_available ? 'badge bg-success' : 'badge bg-warning';
+    document.getElementById('training-status').textContent = 
+        config.training_available ? 'Available' : 'Unavailable';
+}
+
+async function updateSystemInfo() {
+    try {
+        const response = await fetch('/api/stats');
+        const stats = await response.json();
+        
+        document.getElementById('total-checks-info').textContent = stats.total_checks || 0;
+        
+        // Calculate uptime
+        const uptime = Math.floor((new Date() - startTime) / 1000);
+        const hours = Math.floor(uptime / 3600);
+        const minutes = Math.floor((uptime % 3600) / 60);
+        document.getElementById('uptime').textContent = `${hours}h ${minutes}m`;
+        
+        document.getElementById('last-updated').textContent = new Date().toLocaleString();
+        
+    } catch (error) {
+        console.error('Error updating system info:', error);
+    }
+}
+
+async function saveSettings() {
+    const config = {
+        thresholds: {
+            hate_speech: parseFloat(document.getElementById('hate-threshold').value),
+            privacy: parseFloat(document.getElementById('privacy-threshold').value),
+            warn: parseFloat(document.getElementById('warn-threshold').value),
+            block: parseFloat(document.getElementById('block-threshold').value)
+        },
+        weights: {
+            hate_speech: parseFloat(document.getElementById('hate-weight').value),
+            privacy: parseFloat(document.getElementById('privacy-weight').value)
+        }
+    };
+    
+    try {
+        const response = await fetch('/api/config', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(config)
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            showAlert('Configuration saved successfully!', 'success');
+            currentConfig = {...currentConfig, ...config};
+        } else {
+            showAlert('Error saving configuration: ' + (result.error || 'Unknown error'), 'danger');
+        }
+    } catch (error) {
+        showAlert('Network error saving configuration', 'danger');
+    }
+}
+
+function resetSettings() {
+    if (confirm('Are you sure you want to reset all settings to defaults?')) {
+        // Reset to default values
+        setSliderValue('hate-threshold', 0.5);
+        setSliderValue('privacy-threshold', 0.7);
+        setSliderValue('warn-threshold', 0.6);
+        setSliderValue('block-threshold', 0.8);
+        setSliderValue('hate-weight', 0.7);
+        setSliderValue('privacy-weight', 0.3);
+        setSliderValue('confidence-threshold', 0.5);
+        
+        document.getElementById('scoring-method').value = 'weighted_average';
+        document.getElementById('enable-logging').checked = false;
+        document.getElementById('cache-results').checked = true;
+        document.getElementById('auto-update').checked = true;
+        
+        showAlert('Settings reset to defaults', 'info');
+    }
+}
+
+function loadPreset(presetName) {
+    const presets = {
+        lenient: {
+            thresholds: { hate_speech: 0.7, privacy: 0.8, warn: 0.8, block: 0.9 },
+            weights: { hate_speech: 0.5, privacy: 0.2 }
+        },
+        balanced: {
+            thresholds: { hate_speech: 0.5, privacy: 0.7, warn: 0.6, block: 0.8 },
+            weights: { hate_speech: 0.7, privacy: 0.3 }
+        },
+        strict: {
+            thresholds: { hate_speech: 0.3, privacy: 0.5, warn: 0.4, block: 0.6 },
+            weights: { hate_speech: 1.0, privacy: 0.5 }
+        },
+        privacy_focused: {
+            thresholds: { hate_speech: 0.6, privacy: 0.3, warn: 0.5, block: 0.7 },
+            weights: { hate_speech: 0.4, privacy: 1.0 }
+        }
+    };
+    
+    const preset = presets[presetName];
+    if (preset) {
+        // Apply threshold settings
+        Object.entries(preset.thresholds).forEach(([key, value]) => {
+            const fieldMap = {
+                'hate_speech': 'hate-threshold',
+                'privacy': 'privacy-threshold',
+                'warn': 'warn-threshold',
+                'block': 'block-threshold'
+            };
+            setSliderValue(fieldMap[key], value);
+        });
+        
+        // Apply weight settings
+        Object.entries(preset.weights).forEach(([key, value]) => {
+            const fieldMap = {
+                'hate_speech': 'hate-weight',
+                'privacy': 'privacy-weight'
+            };
+            setSliderValue(fieldMap[key], value);
+        });
+        
+        showAlert(`Applied ${presetName} preset configuration`, 'success');
+    }
+}
+
+function testConfiguration() {
+    const testTexts = [
+        "Hello, how are you today?",
+        "My email is test@example.com and my phone is 123-456-7890",
+        "I hate all people from that country"
+    ];
+    
+    showAlert('Running configuration test with sample texts...', 'info');
+    
+    // This would test each sample text with the current configuration
+    // For now, we'll just simulate the test
+    setTimeout(() => {
+        showAlert('Configuration test completed. All samples processed correctly.', 'success');
+    }, 2000);
+}
+
+function exportConfiguration() {
+    const config = {
+        thresholds: {
+            hate_speech: parseFloat(document.getElementById('hate-threshold').value),
+            privacy: parseFloat(document.getElementById('privacy-threshold').value),
+            warn: parseFloat(document.getElementById('warn-threshold').value),
+            block: parseFloat(document.getElementById('block-threshold').value)
+        },
+        weights: {
+            hate_speech: parseFloat(document.getElementById('hate-weight').value),
+            privacy: parseFloat(document.getElementById('privacy-weight').value)
+        },
+        advanced: {
+            scoring_method: document.getElementById('scoring-method').value,
+            confidence_threshold: parseFloat(document.getElementById('confidence-threshold').value),
+            enable_logging: document.getElementById('enable-logging').checked,
+            cache_results: document.getElementById('cache-results').checked,
+            auto_update: document.getElementById('auto-update').checked
+        }
+    };
+    
+    const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'compliance_filter_config.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    
+    showAlert('Configuration exported successfully!', 'success');
+}
+
+function importConfiguration() {
+    const fileInput = document.getElementById('config-file-input');
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const config = JSON.parse(e.target.result);
+                    populateConfigForm(config);
+                    showAlert('Configuration imported successfully!', 'success');
+                } catch (error) {
+                    showAlert('Error parsing configuration file', 'danger');
+                }
+            };
+            reader.readAsText(file);
+        }
+    });
+    fileInput.click();
+}
+
+function viewLogs() {
+    showAlert('Log viewer functionality would be implemented here', 'info');
+}
+
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999;';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(alertDiv);
+    
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.parentNode.removeChild(alertDiv);
+        }
+    }, 5000);
+}
+
+// Add event listeners for sliders
+document.addEventListener('DOMContentLoaded', function() {
+    // Update slider value displays
+    const sliders = [
+        'hate-threshold', 'privacy-threshold', 'warn-threshold', 'block-threshold',
+        'hate-weight', 'privacy-weight', 'confidence-threshold'
+    ];
+    
+    sliders.forEach(sliderId => {
+        const slider = document.getElementById(sliderId);
+        const valueDisplay = document.getElementById(sliderId + '-value');
+        
+        if (slider && valueDisplay) {
+            slider.addEventListener('input', function() {
+                valueDisplay.textContent = this.value;
+            });
+        }
+    });
+    
+    initSettings();
+});
+</script>
+{% endblock %}

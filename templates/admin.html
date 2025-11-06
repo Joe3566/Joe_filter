@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administration - Ultimate Compliance Filter</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    
+    <style>
+        body { background-color: #f8f9fc; }
+        .admin-card { transition: all 0.3s ease; }
+        .admin-card:hover { transform: translateY(-2px); }
+        .system-metric { padding: 1rem; border-radius: 0.5rem; }
+        .status-indicator { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+        .status-active { background-color: #28a745; }
+        .status-warning { background-color: #ffc107; }
+        .status-error { background-color: #dc3545; }
+        .config-section { border-left: 4px solid #007bff; padding-left: 1rem; }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow">
+        <div class="container-fluid">
+            <a class="navbar-brand d-flex align-items-center" href="/">
+                <i class="bi bi-shield-check me-2 fs-4"></i>
+                <strong>Ultimate Compliance Filter</strong>
+            </a>
+            
+            <div class="navbar-nav ms-auto d-flex align-items-center">
+                <div class="nav-item me-3">
+                    <span class="badge bg-warning">
+                        <i class="bi bi-tools me-1"></i>
+                        ADMINISTRATION
+                    </span>
+                </div>
+                
+                <div class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle text-white" href="#" role="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-gear"></i> Menu
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="/"><i class="bi bi-house me-2"></i>Dashboard</a></li>
+                        <li><a class="dropdown-item" href="/monitoring"><i class="bi bi-activity me-2"></i>Live Monitoring</a></li>
+                        <li><a class="dropdown-item" href="/analytics"><i class="bi bi-graph-up me-2"></i>Analytics</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="/admin"><i class="bi bi-tools me-2"></i>Administration</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container-fluid mt-4">
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h2 class="mb-0">System Administration</h2>
+                        <p class="text-muted mb-0">Manage and configure your Ultimate Compliance Filter</p>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <button class="btn btn-outline-warning btn-sm me-2" onclick="backupSystem()">
+                            <i class="bi bi-download me-1"></i>Backup
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm" onclick="restartSystem()">
+                            <i class="bi bi-arrow-clockwise me-1"></i>Restart
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Status Overview -->
+        <div class="row mb-4">
+            <div class="col-xl-3 col-md-6 mb-3">
+                <div class="card admin-card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center mb-2">
+                                    <span class="status-indicator status-active me-2"></span>
+                                    <h6 class="mb-0 text-muted">System Health</h6>
+                                </div>
+                                <h4 class="mb-0 text-success">EXCELLENT</h4>
+                                <small class="text-muted">All systems operational</small>
+                            </div>
+                            <div class="ms-3">
+                                <i class="bi bi-heart-pulse text-success fs-1"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-md-6 mb-3">
+                <div class="card admin-card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center mb-2">
+                                    <span class="status-indicator status-active me-2"></span>
+                                    <h6 class="mb-0 text-muted">Database</h6>
+                                </div>
+                                <h4 class="mb-0 text-primary">CONNECTED</h4>
+                                <small class="text-muted">12ms latency</small>
+                            </div>
+                            <div class="ms-3">
+                                <i class="bi bi-database text-primary fs-1"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-md-6 mb-3">
+                <div class="card admin-card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center mb-2">
+                                    <span class="status-indicator status-active me-2"></span>
+                                    <h6 class="mb-0 text-muted">API Services</h6>
+                                </div>
+                                <h4 class="mb-0 text-info">RUNNING</h4>
+                                <small class="text-muted">5 endpoints active</small>
+                            </div>
+                            <div class="ms-3">
+                                <i class="bi bi-cloud text-info fs-1"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-md-6 mb-3">
+                <div class="card admin-card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center mb-2">
+                                    <span class="status-indicator status-warning me-2"></span>
+                                    <h6 class="mb-0 text-muted">Storage</h6>
+                                </div>
+                                <h4 class="mb-0 text-warning">78% USED</h4>
+                                <small class="text-muted">156 GB available</small>
+                            </div>
+                            <div class="ms-3">
+                                <i class="bi bi-hdd text-warning fs-1"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Innovation Systems Management -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0 fw-bold text-primary">
+                            <i class="bi bi-cpu-fill me-2"></i>Innovation Systems Management
+                        </h6>
+                        <button class="btn btn-sm btn-outline-primary" onclick="refreshSystemStatus()">
+                            <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="border-0">System</th>
+                                        <th class="border-0">Status</th>
+                                        <th class="border-0">Performance</th>
+                                        <th class="border-0">Memory</th>
+                                        <th class="border-0">CPU</th>
+                                        <th class="border-0">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <i class="bi bi-brain text-success me-2 fs-5"></i>
+                                                <div>
+                                                    <div class="fw-medium">Adaptive Learning System</div>
+                                                    <small class="text-muted">Real-time AI Learning</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td><span class="badge bg-success">ACTIVE</span></td>
+                                        <td>
+                                            <div class="progress" style="height: 8px;">
+                                                <div class="progress-bar bg-success" style="width: 92%"></div>
+                                            </div>
+                                            <small class="text-muted">92%</small>
+                                        </td>
+                                        <td><span class="text-muted">1.2 GB</span></td>
+                                        <td><span class="text-muted">35%</span></td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <button class="btn btn-outline-primary" onclick="configureSystem('adaptive')">
+                                                    <i class="bi bi-gear"></i>
+                                                </button>
+                                                <button class="btn btn-outline-warning" onclick="restartSystem('adaptive')">
+                                                    <i class="bi bi-arrow-clockwise"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <i class="bi bi-person-check text-success me-2 fs-5"></i>
+                                                <div>
+                                                    <div class="fw-medium">Behavioral Analysis Engine</div>
+                                                    <small class="text-muted">Pattern Detection</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td><span class="badge bg-success">ACTIVE</span></td>
+                                        <td>
+                                            <div class="progress" style="height: 8px;">
+                                                <div class="progress-bar bg-warning" style="width: 78%"></div>
+                                            </div>
+                                            <small class="text-muted">78%</small>
+                                        </td>
+                                        <td><span class="text-muted">2.8 GB</span></td>
+                                        <td><span class="text-muted">52%</span></td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <button class="btn btn-outline-primary" onclick="configureSystem('behavioral')">
+                                                    <i class="bi bi-gear"></i>
+                                                </button>
+                                                <button class="btn btn-outline-warning" onclick="restartSystem('behavioral')">
+                                                    <i class="bi bi-arrow-clockwise"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <i class="bi bi-share text-success me-2 fs-5"></i>
+                                                <div>
+                                                    <div class="fw-medium">Federated Learning Network</div>
+                                                    <small class="text-muted">Privacy-Preserving</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td><span class="badge bg-success">ACTIVE</span></td>
+                                        <td>
+                                            <div class="progress" style="height: 8px;">
+                                                <div class="progress-bar bg-info" style="width: 65%"></div>
+                                            </div>
+                                            <small class="text-muted">65%</small>
+                                        </td>
+                                        <td><span class="text-muted">0.9 GB</span></td>
+                                        <td><span class="text-muted">28%</span></td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <button class="btn btn-outline-primary" onclick="configureSystem('federated')">
+                                                    <i class="bi bi-gear"></i>
+                                                </button>
+                                                <button class="btn btn-outline-warning" onclick="restartSystem('federated')">
+                                                    <i class="bi bi-arrow-clockwise"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <i class="bi bi-robot text-success me-2 fs-5"></i>
+                                                <div>
+                                                    <div class="fw-medium">HuggingFace Transformers</div>
+                                                    <small class="text-muted">AI Model Processing</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td><span class="badge bg-success">ACTIVE</span></td>
+                                        <td>
+                                            <div class="progress" style="height: 8px;">
+                                                <div class="progress-bar bg-danger" style="width: 89%"></div>
+                                            </div>
+                                            <small class="text-muted">89%</small>
+                                        </td>
+                                        <td><span class="text-muted">4.1 GB</span></td>
+                                        <td><span class="text-muted">71%</span></td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <button class="btn btn-outline-primary" onclick="configureSystem('huggingface')">
+                                                    <i class="bi bi-gear"></i>
+                                                </button>
+                                                <button class="btn btn-outline-warning" onclick="restartSystem('huggingface')">
+                                                    <i class="bi bi-arrow-clockwise"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <i class="bi bi-lightbulb text-success me-2 fs-5"></i>
+                                                <div>
+                                                    <div class="fw-medium">Semantic & Contextual Analyzer</div>
+                                                    <small class="text-muted">Deep Understanding</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td><span class="badge bg-success">ACTIVE</span></td>
+                                        <td>
+                                            <div class="progress" style="height: 8px;">
+                                                <div class="progress-bar bg-success" style="width: 84%"></div>
+                                            </div>
+                                            <small class="text-muted">84%</small>
+                                        </td>
+                                        <td><span class="text-muted">1.8 GB</span></td>
+                                        <td><span class="text-muted">41%</span></td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <button class="btn btn-outline-primary" onclick="configureSystem('semantic')">
+                                                    <i class="bi bi-gear"></i>
+                                                </button>
+                                                <button class="btn btn-outline-warning" onclick="restartSystem('semantic')">
+                                                    <i class="bi bi-arrow-clockwise"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Configuration Management -->
+        <div class="row">
+            <!-- System Configuration -->
+            <div class="col-xl-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-white">
+                        <h6 class="mb-0 fw-bold text-primary">
+                            <i class="bi bi-sliders me-2"></i>System Configuration
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="config-section mb-4">
+                            <h6 class="fw-medium mb-3">General Settings</h6>
+                            <div class="mb-3">
+                                <label class="form-label">System Mode</label>
+                                <select class="form-select form-select-sm">
+                                    <option selected>Production</option>
+                                    <option>Development</option>
+                                    <option>Testing</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Log Level</label>
+                                <select class="form-select form-select-sm">
+                                    <option>ERROR</option>
+                                    <option selected>INFO</option>
+                                    <option>DEBUG</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="config-section mb-4">
+                            <h6 class="fw-medium mb-3">Performance Tuning</h6>
+                            <div class="mb-3">
+                                <label class="form-label">Max Concurrent Analyses</label>
+                                <input type="range" class="form-range" min="1" max="100" value="50">
+                                <div class="d-flex justify-content-between">
+                                    <small class="text-muted">1</small>
+                                    <small class="text-muted">Current: 50</small>
+                                    <small class="text-muted">100</small>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Cache Timeout (minutes)</label>
+                                <input type="number" class="form-control form-control-sm" value="30" min="1" max="1440">
+                            </div>
+                        </div>
+
+                        <div class="config-section">
+                            <h6 class="fw-medium mb-3">Security Settings</h6>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="enableAuth" checked>
+                                <label class="form-check-label" for="enableAuth">
+                                    Enable Authentication
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="enableTLS" checked>
+                                <label class="form-check-label" for="enableTLS">
+                                    Force HTTPS/TLS
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="enableAudit" checked>
+                                <label class="form-check-label" for="enableAudit">
+                                    Enable Audit Logging
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-white">
+                        <div class="d-flex justify-content-end">
+                            <button class="btn btn-outline-secondary btn-sm me-2" onclick="resetConfig()">Reset</button>
+                            <button class="btn btn-primary btn-sm" onclick="saveConfig()">Save Changes</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Logs & Health -->
+            <div class="col-xl-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0 fw-bold text-primary">
+                            <i class="bi bi-journal-text me-2"></i>Recent System Logs
+                        </h6>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button class="btn btn-outline-secondary" onclick="clearLogs()">Clear</button>
+                            <button class="btn btn-outline-primary" onclick="downloadLogs()">Download</button>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="log-container" style="height: 400px; overflow-y: auto; font-family: monospace; font-size: 0.85rem;">
+                            <div class="p-2 border-bottom">
+                                <span class="text-success">[2024-10-14 09:03:45] INFO</span> - System initialization completed successfully
+                            </div>
+                            <div class="p-2 border-bottom">
+                                <span class="text-primary">[2024-10-14 09:03:46] INFO</span> - All 5 innovation systems loaded and active
+                            </div>
+                            <div class="p-2 border-bottom">
+                                <span class="text-primary">[2024-10-14 09:03:47] INFO</span> - HuggingFace models loaded: toxicity, sentiment, emotion
+                            </div>
+                            <div class="p-2 border-bottom">
+                                <span class="text-primary">[2024-10-14 09:03:48] INFO</span> - Semantic analyzer ready with spaCy and transformers
+                            </div>
+                            <div class="p-2 border-bottom">
+                                <span class="text-primary">[2024-10-14 09:03:49] INFO</span> - Federated learning network participant initialized
+                            </div>
+                            <div class="p-2 border-bottom">
+                                <span class="text-primary">[2024-10-14 09:03:50] INFO</span> - Behavioral analysis engine ML models loaded
+                            </div>
+                            <div class="p-2 border-bottom">
+                                <span class="text-primary">[2024-10-14 09:03:51] INFO</span> - Adaptive learning system ready for continuous improvement
+                            </div>
+                            <div class="p-2 border-bottom">
+                                <span class="text-success">[2024-10-14 09:03:52] INFO</span> - Ultimate Compliance Filter fully operational
+                            </div>
+                            <div class="p-2 border-bottom">
+                                <span class="text-primary">[2024-10-14 09:04:15] INFO</span> - Analysis completed: user_corporate_001 - SAFE
+                            </div>
+                            <div class="p-2 border-bottom">
+                                <span class="text-warning">[2024-10-14 09:04:23] WARN</span> - High processing time detected: 4.2s for complex analysis
+                            </div>
+                            <div class="p-2 border-bottom">
+                                <span class="text-danger">[2024-10-14 09:04:31] INFO</span> - Threat detected: hate_user_001 - VIOLATION (confidence: 82%)
+                            </div>
+                            <div class="p-2 border-bottom">
+                                <span class="text-primary">[2024-10-14 09:04:45] INFO</span> - Adaptive learning processed user feedback signal
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JavaScript -->
+    <script>
+        // Admin functions
+        function refreshSystemStatus() {
+            console.log('Refreshing system status...');
+            // Would implement actual system status refresh
+        }
+
+        function configureSystem(systemType) {
+            alert(`Opening configuration for ${systemType} system...`);
+            // Would open configuration modal/page
+        }
+
+        function restartSystem(systemType) {
+            if (systemType) {
+                if (confirm(`Restart ${systemType} system? This may cause temporary downtime.`)) {
+                    console.log(`Restarting ${systemType} system...`);
+                    // Would implement system restart
+                }
+            } else {
+                if (confirm('Restart entire system? This will cause temporary downtime for all services.')) {
+                    console.log('Restarting entire system...');
+                    // Would implement full system restart
+                }
+            }
+        }
+
+        function backupSystem() {
+            alert('Initiating system backup...');
+            // Would implement backup functionality
+        }
+
+        function saveConfig() {
+            alert('Configuration saved successfully!');
+            // Would implement configuration save
+        }
+
+        function resetConfig() {
+            if (confirm('Reset configuration to defaults? This will lose all custom settings.')) {
+                console.log('Resetting configuration...');
+                // Would implement configuration reset
+            }
+        }
+
+        function clearLogs() {
+            if (confirm('Clear all system logs? This action cannot be undone.')) {
+                console.log('Clearing logs...');
+                // Would implement log clearing
+            }
+        }
+
+        function downloadLogs() {
+            alert('Downloading system logs...');
+            // Would implement log download
+        }
+
+        // Auto-scroll logs to bottom
+        document.addEventListener('DOMContentLoaded', function() {
+            const logContainer = document.querySelector('.log-container');
+            if (logContainer) {
+                logContainer.scrollTop = logContainer.scrollHeight;
+            }
+        });
+
+        // Simulate real-time log updates
+        function addLogEntry(level, message) {
+            const logContainer = document.querySelector('.log-container');
+            const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
+            const levelClass = {
+                'INFO': 'text-primary',
+                'WARN': 'text-warning', 
+                'ERROR': 'text-danger',
+                'SUCCESS': 'text-success'
+            }[level] || 'text-muted';
+
+            const logEntry = document.createElement('div');
+            logEntry.className = 'p-2 border-bottom';
+            logEntry.innerHTML = `<span class="${levelClass}">[${timestamp}] ${level}</span> - ${message}`;
+
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+
+            // Keep only last 50 log entries
+            const logEntries = logContainer.children;
+            if (logEntries.length > 50) {
+                logContainer.removeChild(logEntries[0]);
+            }
+        }
+
+        // Simulate periodic log updates
+        setInterval(() => {
+            const messages = [
+                'Analysis request processed successfully',
+                'Cache cleanup completed',
+                'Background task executed',
+                'System health check passed',
+                'Memory usage optimization completed'
+            ];
+            const levels = ['INFO', 'INFO', 'INFO', 'SUCCESS'];
+            const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+            const randomLevel = levels[Math.floor(Math.random() * levels.length)];
+            
+            if (Math.random() < 0.3) { // 30% chance of new log entry
+                addLogEntry(randomLevel, randomMessage);
+            }
+        }, 5000);
+    </script>
+</body>
+</html>

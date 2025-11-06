@@ -1,0 +1,35 @@
+# Advanced Jailbreak Detection API Requirements
+
+# Core FastAPI stack
+fastapi>=0.104.1
+uvicorn[standard]>=0.24.0
+pydantic>=2.4.0
+
+# Python standard libraries (already available)
+# - typing
+# - dataclasses  
+# - enum
+# - re
+# - json
+# - base64
+# - collections
+# - hashlib
+# - logging
+# - time
+# - datetime
+# - asyncio
+# - pathlib
+
+# Optional: For enhanced web interface (if needed)
+jinja2>=3.1.0  # For HTML templates
+aiofiles>=23.0.0  # For async file handling
+
+# Optional: For advanced ML features (if available)
+# torch>=2.0.0
+# transformers>=4.35.0
+# numpy>=1.24.0
+
+# Optional: For production deployment
+# gunicorn>=21.0.0
+# redis>=5.0.0  # For caching
+# python-multipart>=0.0.6  # For form data

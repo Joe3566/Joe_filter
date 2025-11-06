@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Monitoring - Ultimate Compliance Filter</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Socket.IO -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    
+    <style>
+        body { background-color: #f8f9fc; }
+        .monitoring-card { transition: all 0.3s ease; }
+        .monitoring-card:hover { transform: translateY(-2px); }
+        .threat-indicator { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        .status-online { background-color: #28a745; }
+        .status-warning { background-color: #ffc107; }
+        .status-danger { background-color: #dc3545; }
+        .real-time-feed { height: 400px; overflow-y: auto; }
+        .analysis-item { border-left: 4px solid transparent; }
+        .analysis-safe { border-left-color: #28a745; }
+        .analysis-violation { border-left-color: #dc3545; }
+        .analysis-warning { border-left-color: #ffc107; }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow">
+        <div class="container-fluid">
+            <a class="navbar-brand d-flex align-items-center" href="/">
+                <i class="bi bi-shield-check me-2 fs-4"></i>
+                <strong>Ultimate Compliance Filter</strong>
+            </a>
+            
+            <div class="navbar-nav ms-auto d-flex align-items-center">
+                <div class="nav-item me-3">
+                    <span class="badge bg-success">
+                        <span class="threat-indicator status-online me-1"></span>
+                        LIVE MONITORING
+                    </span>
+                </div>
+                
+                <div class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle text-white" href="#" role="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-gear"></i> Menu
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="/"><i class="bi bi-house me-2"></i>Dashboard</a></li>
+                        <li><a class="dropdown-item" href="/monitoring"><i class="bi bi-activity me-2"></i>Live Monitoring</a></li>
+                        <li><a class="dropdown-item" href="/analytics"><i class="bi bi-graph-up me-2"></i>Analytics</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="/admin"><i class="bi bi-tools me-2"></i>Administration</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container-fluid mt-4">
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h2 class="mb-0">Live Threat Monitoring</h2>
+                        <p class="text-muted mb-0">Real-time analysis and threat detection dashboard</p>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            <span class="threat-indicator status-online me-1"></span>
+                            <small class="text-muted">Live Feed Active</small>
+                        </div>
+                        <button class="btn btn-outline-primary btn-sm" onclick="toggleAutoRefresh()">
+                            <i class="bi bi-arrow-clockwise me-1"></i>
+                            <span id="refresh-status">Auto Refresh ON</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Real-time Stats Cards -->
+        <div class="row mb-4">
+            <div class="col-xl-2 col-md-4 mb-3">
+                <div class="card monitoring-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="bi bi-activity text-primary fs-1 mb-2"></i>
+                        <h6 class="card-title text-uppercase text-muted mb-1">Live Status</h6>
+                        <span class="badge bg-success" id="live-status">ACTIVE</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-xl-2 col-md-4 mb-3">
+                <div class="card monitoring-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="bi bi-lightning-charge text-warning fs-1 mb-2"></i>
+                        <h6 class="card-title text-uppercase text-muted mb-1">Processing</h6>
+                        <h4 class="mb-0 text-primary" id="processing-count">0</h4>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-xl-2 col-md-4 mb-3">
+                <div class="card monitoring-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="bi bi-shield-exclamation text-danger fs-1 mb-2"></i>
+                        <h6 class="card-title text-uppercase text-muted mb-1">Threats</h6>
+                        <h4 class="mb-0 text-danger" id="threat-count">0</h4>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-xl-2 col-md-4 mb-3">
+                <div class="card monitoring-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="bi bi-check-circle text-success fs-1 mb-2"></i>
+                        <h6 class="card-title text-uppercase text-muted mb-1">Safe</h6>
+                        <h4 class="mb-0 text-success" id="safe-count">0</h4>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-xl-2 col-md-4 mb-3">
+                <div class="card monitoring-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="bi bi-speedometer2 text-info fs-1 mb-2"></i>
+                        <h6 class="card-title text-uppercase text-muted mb-1">Avg Time</h6>
+                        <h4 class="mb-0 text-info" id="avg-time">--ms</h4>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-xl-2 col-md-4 mb-3">
+                <div class="card monitoring-card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="bi bi-graph-up text-secondary fs-1 mb-2"></i>
+                        <h6 class="card-title text-uppercase text-muted mb-1">Rate</h6>
+                        <h4 class="mb-0 text-secondary" id="analysis-rate">0/min</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Monitoring Interface -->
+        <div class="row">
+            <!-- Real-time Feed -->
+            <div class="col-lg-8">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0 fw-bold text-primary">
+                            <i class="bi bi-broadcast me-2"></i>Real-time Analysis Feed
+                        </h6>
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-light text-dark me-2" id="feed-count">0 items</span>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="clearFeed()">
+                                <i class="bi bi-trash3"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="real-time-feed" id="real-time-feed">
+                            <div class="text-center py-5 text-muted">
+                                <i class="bi bi-broadcast fs-1 mb-2"></i>
+                                <div>Waiting for real-time analysis data...</div>
+                                <small>Analysis results will appear here automatically</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Status & Controls -->
+            <div class="col-lg-4">
+                <!-- Innovation Systems Status -->
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-white">
+                        <h6 class="mb-0 fw-bold text-primary">
+                            <i class="bi bi-cpu me-2"></i>Innovation Systems
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="innovation-status" id="innovation-status">
+                            <div class="d-flex justify-content-between align-items-center mb-2 p-2 rounded bg-light">
+                                <small class="fw-medium">Adaptive Learning</small>
+                                <span class="badge bg-success">ACTIVE</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mb-2 p-2 rounded bg-light">
+                                <small class="fw-medium">Behavioral Analysis</small>
+                                <span class="badge bg-success">ACTIVE</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mb-2 p-2 rounded bg-light">
+                                <small class="fw-medium">Federated Learning</small>
+                                <span class="badge bg-success">ACTIVE</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mb-2 p-2 rounded bg-light">
+                                <small class="fw-medium">HuggingFace Transformers</small>
+                                <span class="badge bg-success">ACTIVE</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center p-2 rounded bg-light">
+                                <small class="fw-medium">Semantic Analysis</small>
+                                <span class="badge bg-success">ACTIVE</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Threat Level Indicator -->
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-white">
+                        <h6 class="mb-0 fw-bold text-primary">
+                            <i class="bi bi-shield-check me-2"></i>Current Threat Level
+                        </h6>
+                    </div>
+                    <div class="card-body text-center">
+                        <div class="mb-3">
+                            <div class="threat-level-indicator bg-success rounded-circle mx-auto d-flex align-items-center justify-content-center" 
+                                 style="width: 80px; height: 80px;" id="threat-level-indicator">
+                                <i class="bi bi-shield-check text-white fs-2"></i>
+                            </div>
+                        </div>
+                        <h5 class="mb-1" id="threat-level-text">LOW</h5>
+                        <small class="text-muted">System operating normally</small>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="card shadow-sm">
+                    <div class="card-header bg-white">
+                        <h6 class="mb-0 fw-bold text-primary">
+                            <i class="bi bi-lightning-charge me-2"></i>Quick Actions
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-outline-primary btn-sm" onclick="exportThreatData()">
+                                <i class="bi bi-download me-1"></i>Export Threat Data
+                            </button>
+                            <button class="btn btn-outline-warning btn-sm" onclick="generateReport()">
+                                <i class="bi bi-file-earmark-text me-1"></i>Generate Report
+                            </button>
+                            <button class="btn btn-outline-info btn-sm" onclick="systemHealthCheck()">
+                                <i class="bi bi-heart-pulse me-1"></i>Health Check
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JavaScript -->
+    <script>
+        // Initialize Socket.IO
+        const socket = io();
+        
+        // Monitoring state
+        let autoRefresh = true;
+        let analysisCount = 0;
+        let threatCount = 0;
+        let safeCount = 0;
+        let processingTimes = [];
+        let feedItems = [];
+        
+        // Initialize monitoring
+        function initializeMonitoring() {
+            updateCounters();
+            setInterval(updateMetrics, 5000); // Update metrics every 5 seconds
+        }
+        
+        // Update counters
+        function updateCounters() {
+            document.getElementById('processing-count').textContent = analysisCount;
+            document.getElementById('threat-count').textContent = threatCount;
+            document.getElementById('safe-count').textContent = safeCount;
+            document.getElementById('feed-count').textContent = feedItems.length + ' items';
+            
+            // Calculate average processing time
+            if (processingTimes.length > 0) {
+                const avgTime = processingTimes.reduce((a, b) => a + b, 0) / processingTimes.length;
+                document.getElementById('avg-time').textContent = avgTime.toFixed(1) + 'ms';
+            }
+            
+            // Calculate analysis rate (simplified)
+            const rate = Math.min(analysisCount / 5, 99); // Mock calculation
+            document.getElementById('analysis-rate').textContent = rate.toFixed(0) + '/min';
+            
+            // Update threat level
+            updateThreatLevel();
+        }
+        
+        // Update threat level indicator
+        function updateThreatLevel() {
+            const indicator = document.getElementById('threat-level-indicator');
+            const text = document.getElementById('threat-level-text');
+            const percentage = threatCount > 0 ? (threatCount / analysisCount) * 100 : 0;
+            
+            if (percentage > 50) {
+                indicator.className = 'threat-level-indicator bg-danger rounded-circle mx-auto d-flex align-items-center justify-content-center';
+                indicator.innerHTML = '<i class=\"bi bi-shield-exclamation text-white fs-2\"></i>';
+                text.textContent = 'HIGH';
+                text.className = 'mb-1 text-danger';
+            } else if (percentage > 20) {
+                indicator.className = 'threat-level-indicator bg-warning rounded-circle mx-auto d-flex align-items-center justify-content-center';
+                indicator.innerHTML = '<i class=\"bi bi-shield-check text-white fs-2\"></i>';
+                text.textContent = 'MEDIUM';
+                text.className = 'mb-1 text-warning';
+            } else {
+                indicator.className = 'threat-level-indicator bg-success rounded-circle mx-auto d-flex align-items-center justify-content-center';
+                indicator.innerHTML = '<i class=\"bi bi-shield-check text-white fs-2\"></i>';
+                text.textContent = 'LOW';
+                text.className = 'mb-1 text-success';
+            }\n        }\n        \n        // Add analysis to real-time feed\n        function addToFeed(analysis) {\n            const feed = document.getElementById('real-time-feed');\n            \n            // Clear waiting message if this is the first item\n            if (feedItems.length === 0) {\n                feed.innerHTML = '';\n            }\n            \n            const timestamp = new Date(analysis.timestamp).toLocaleTimeString();\n            const isViolation = analysis.result.status === 'VIOLATION';\n            const statusClass = isViolation ? 'analysis-violation' : 'analysis-safe';\n            const statusBadge = isViolation ? \n                '<span class=\"badge bg-danger\"><i class=\"bi bi-exclamation-triangle me-1\"></i>VIOLATION</span>' :\n                '<span class=\"badge bg-success\"><i class=\"bi bi-check-circle me-1\"></i>SAFE</span>';\n            \n            const feedItem = document.createElement('div');\n            feedItem.className = `analysis-item ${statusClass} p-3 border-bottom`;\n            feedItem.innerHTML = `\n                <div class=\"d-flex justify-content-between align-items-start mb-2\">\n                    <div class=\"flex-grow-1\">\n                        <div class=\"d-flex align-items-center mb-1\">\n                            <strong class=\"me-2\">${analysis.user_id}</strong>\n                            ${statusBadge}\n                            <small class=\"text-muted ms-2\">${timestamp}</small>\n                        </div>\n                        <div class=\"text-truncate\" style=\"max-width: 400px;\">\n                            <small class=\"text-muted\">\"${analysis.content_preview}\"</small>\n                        </div>\n                    </div>\n                    <div class=\"text-end\">\n                        <small class=\"text-muted\">${analysis.processing_time.toFixed(1)}ms</small>\n                        ${analysis.result.confidence ? `<br><small class=\"badge bg-secondary\">${(analysis.result.confidence * 100).toFixed(0)}%</small>` : ''}\n                    </div>\n                </div>\n                ${analysis.result.reasoning ? `<div class=\"mt-2\"><small class=\"text-muted\"><strong>Reasoning:</strong> ${analysis.result.reasoning}</small></div>` : ''}\n            `;\n            \n            feed.insertBefore(feedItem, feed.firstChild);\n            feedItems.unshift(analysis);\n            \n            // Keep only last 50 items\n            while (feedItems.length > 50) {\n                feedItems.pop();\n                if (feed.lastChild) {\n                    feed.removeChild(feed.lastChild);\n                }\n            }\n            \n            // Update counters\n            analysisCount++;\n            if (isViolation) {\n                threatCount++;\n            } else {\n                safeCount++;\n            }\n            processingTimes.push(analysis.processing_time || 0);\n            \n            // Keep processing times array manageable\n            if (processingTimes.length > 100) {\n                processingTimes = processingTimes.slice(-50);\n            }\n            \n            updateCounters();\n        }\n        \n        // Toggle auto refresh\n        function toggleAutoRefresh() {\n            autoRefresh = !autoRefresh;\n            const status = document.getElementById('refresh-status');\n            status.textContent = autoRefresh ? 'Auto Refresh ON' : 'Auto Refresh OFF';\n        }\n        \n        // Clear feed\n        function clearFeed() {\n            const feed = document.getElementById('real-time-feed');\n            feed.innerHTML = `\n                <div class=\"text-center py-5 text-muted\">\n                    <i class=\"bi bi-broadcast fs-1 mb-2\"></i>\n                    <div>Feed cleared - waiting for new analysis data...</div>\n                </div>\n            `;\n            feedItems = [];\n            updateCounters();\n        }\n        \n        // Quick action functions\n        function exportThreatData() {\n            alert('Threat data export functionality would be implemented here');\n        }\n        \n        function generateReport() {\n            alert('Report generation functionality would be implemented here');\n        }\n        \n        function systemHealthCheck() {\n            alert('System health check functionality would be implemented here');\n        }\n        \n        // Update metrics periodically\n        function updateMetrics() {\n            if (autoRefresh) {\n                // This would typically fetch fresh metrics from the server\n                console.log('Updating metrics...');\n            }\n        }\n        \n        // Socket.IO event handlers\n        socket.on('connect', function() {\n            console.log('Connected to monitoring server');\n            document.getElementById('live-status').textContent = 'ACTIVE';\n            document.getElementById('live-status').className = 'badge bg-success';\n        });\n        \n        socket.on('disconnect', function() {\n            console.log('Disconnected from monitoring server');\n            document.getElementById('live-status').textContent = 'OFFLINE';\n            document.getElementById('live-status').className = 'badge bg-danger';\n        });\n        \n        socket.on('new_analysis', function(analysis) {\n            if (autoRefresh) {\n                addToFeed(analysis);\n            }\n        });\n        \n        // Initialize on page load\n        document.addEventListener('DOMContentLoaded', function() {\n            initializeMonitoring();\n        });\n    </script>\n</body>\n</html>

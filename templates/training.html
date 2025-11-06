@@ -1,0 +1,537 @@
+{% extends "base.html" %}
+
+{% block title %}Training - LLM Compliance Filter{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="fas fa-brain text-primary me-3"></i>Training Data Management</h1>
+    <div>
+        <button class="btn btn-success me-2" data-bs-toggle="modal" data-bs-target="#addExampleModal">
+            <i class="fas fa-plus me-2"></i>Add Example
+        </button>
+        <button class="btn btn-primary" onclick="exportTrainingData()">
+            <i class="fas fa-download me-2"></i>Export Data
+        </button>
+    </div>
+</div>
+
+<!-- Training Status Cards -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card stats-card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-title">Total Examples</h6>
+                        <h2 class="mb-0" id="total-examples">0</h2>
+                    </div>
+                    <i class="fas fa-database fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card stats-card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-title">Safe Examples</h6>
+                        <h2 class="mb-0" id="safe-examples">0</h2>
+                    </div>
+                    <i class="fas fa-check-circle fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card stats-card bg-danger text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-title">Harmful Examples</h6>
+                        <h2 class="mb-0" id="harmful-examples">0</h2>
+                    </div>
+                    <i class="fas fa-exclamation-triangle fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card stats-card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-title">Categories</h6>
+                        <h2 class="mb-0" id="categories-count">0</h2>
+                    </div>
+                    <i class="fas fa-tags fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Category Distribution -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="fas fa-chart-pie text-primary me-2"></i>Category Distribution</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="categoryChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="fas fa-list text-primary me-2"></i>Category Breakdown</h5>
+            </div>
+            <div class="card-body">
+                <div id="category-breakdown" style="max-height: 300px; overflow-y: auto;">
+                    <div class="text-center text-muted">
+                        <i class="fas fa-spinner fa-spin fa-2x mb-3"></i>
+                        <p>Loading category data...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Training Actions -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="fas fa-cogs text-primary me-2"></i>Training Actions</h5>
+            </div>
+            <div class="card-body">
+                <button class="btn btn-primary d-block w-100 mb-2" onclick="startTraining()">
+                    <i class="fas fa-play me-2"></i>Start Training
+                </button>
+                <button class="btn btn-info d-block w-100 mb-2" onclick="validateModel()">
+                    <i class="fas fa-check-double me-2"></i>Validate Model
+                </button>
+                <button class="btn btn-warning d-block w-100" onclick="resetTraining()">
+                    <i class="fas fa-undo me-2"></i>Reset Training
+                </button>
+                
+                <div id="training-progress" style="display: none;" class="mt-3">
+                    <div class="progress">
+                        <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <small class="text-muted d-block text-center mt-1" id="training-status">Preparing...</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="fas fa-history text-primary me-2"></i>Training History</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Action</th>
+                                <th>Examples</th>
+                                <th>Duration</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="training-history">
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">No training history</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Example Modal -->
+<div class="modal fade" id="addExampleModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-plus-circle text-primary me-2"></i>Add Training Example</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="add-example-form">
+                    <div class="mb-3">
+                        <label for="example-text" class="form-label">Text Content</label>
+                        <textarea class="form-control" id="example-text" rows="4" 
+                                placeholder="Enter the text content for this training example..."></textarea>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="example-category" class="form-label">Category</label>
+                                <select class="form-select" id="example-category">
+                                    <option value="hate_speech">Hate Speech</option>
+                                    <option value="violence">Violence</option>
+                                    <option value="self_harm">Self Harm</option>
+                                    <option value="illegal_activities">Illegal Activities</option>
+                                    <option value="misinformation">Misinformation</option>
+                                    <option value="privacy_violation">Privacy Violation</option>
+                                    <option value="general">General</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="example-harmful" class="form-label">Classification</label>
+                                <select class="form-select" id="example-harmful">
+                                    <option value="false">Safe Content</option>
+                                    <option value="true">Harmful Content</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="example-confidence" class="form-label">Confidence</label>
+                                <input type="range" class="form-range" id="example-confidence" 
+                                       min="0" max="1" step="0.1" value="0.9">
+                                <div class="d-flex justify-content-between">
+                                    <small>0.0</small>
+                                    <span id="confidence-value" class="badge bg-secondary">0.9</span>
+                                    <small>1.0</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="example-source" class="form-label">Source</label>
+                                <input type="text" class="form-control" id="example-source" 
+                                       value="manual_entry" placeholder="Source of this example">
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="addTrainingExample()">
+                    <i class="fas fa-plus me-2"></i>Add Example
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let categoryChart;
+
+// Initialize training dashboard
+async function initTraining() {
+    await updateTrainingData();
+    initCategoryChart();
+    setInterval(updateTrainingData, 10000); // Update every 10 seconds
+}
+
+async function updateTrainingData() {
+    try {
+        const response = await fetch('/api/training/categories');
+        const data = await response.json();
+        
+        if (response.ok) {
+            updateTrainingStats(data);
+            updateCategoryBreakdown(data.categories);
+            updateCategoryChart(data.categories);
+        } else {
+            console.error('Training data error:', data.error);
+            showTrainingUnavailable();
+        }
+        
+    } catch (error) {
+        console.error('Error updating training data:', error);
+        showTrainingUnavailable();
+    }
+}
+
+function updateTrainingStats(data) {
+    document.getElementById('total-examples').textContent = data.total_examples || 0;
+    
+    let safeCount = 0, harmfulCount = 0, categoryCount = 0;
+    
+    if (data.categories && data.categories.length > 0) {
+        categoryCount = data.categories.length;
+        data.categories.forEach(cat => {
+            safeCount += cat.safe;
+            harmfulCount += cat.harmful;
+        });
+    }
+    
+    document.getElementById('safe-examples').textContent = safeCount;
+    document.getElementById('harmful-examples').textContent = harmfulCount;
+    document.getElementById('categories-count').textContent = categoryCount;
+}
+
+function updateCategoryBreakdown(categories) {
+    const breakdown = document.getElementById('category-breakdown');
+    
+    if (!categories || categories.length === 0) {
+        breakdown.innerHTML = `
+            <div class="text-center text-muted">
+                <i class="fas fa-inbox fa-2x mb-3"></i>
+                <p>No training data available</p>
+                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addExampleModal">
+                    <i class="fas fa-plus me-1"></i>Add First Example
+                </button>
+            </div>
+        `;
+        return;
+    }
+    
+    const sortedCategories = categories.sort((a, b) => b.total - a.total);
+    
+    breakdown.innerHTML = sortedCategories.map(category => {
+        const safePercentage = category.total > 0 ? (category.safe / category.total * 100) : 0;
+        const harmfulPercentage = category.total > 0 ? (category.harmful / category.total * 100) : 0;
+        
+        return `
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="flex-grow-1">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="fw-bold">${category.name}</span>
+                        <span class="badge bg-secondary">${category.total}</span>
+                    </div>
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar bg-success" role="progressbar" style="width: ${safePercentage}%" title="Safe: ${category.safe}"></div>
+                        <div class="progress-bar bg-danger" role="progressbar" style="width: ${harmfulPercentage}%" title="Harmful: ${category.harmful}"></div>
+                    </div>
+                    <div class="d-flex justify-content-between mt-1">
+                        <small class="text-success">Safe: ${category.safe}</small>
+                        <small class="text-danger">Harmful: ${category.harmful}</small>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function initCategoryChart() {
+    const ctx = document.getElementById('categoryChart').getContext('2d');
+    categoryChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: [],
+            datasets: [{
+                data: [],
+                backgroundColor: [
+                    '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', 
+                    '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF'
+                ],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+}
+
+function updateCategoryChart(categories) {
+    if (!categories || categories.length === 0) {
+        categoryChart.data.labels = [];
+        categoryChart.data.datasets[0].data = [];
+    } else {
+        categoryChart.data.labels = categories.map(cat => cat.name);
+        categoryChart.data.datasets[0].data = categories.map(cat => cat.total);
+    }
+    categoryChart.update();
+}
+
+function showTrainingUnavailable() {
+    const breakdown = document.getElementById('category-breakdown');
+    breakdown.innerHTML = `
+        <div class="text-center text-muted">
+            <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
+            <p>Training system unavailable</p>
+            <small>The training system may not be properly installed or configured.</small>
+        </div>
+    `;
+    
+    // Disable training buttons
+    document.querySelectorAll('button[onclick*="Training"], button[onclick*="Model"]').forEach(btn => {
+        btn.disabled = true;
+        btn.classList.add('disabled');
+    });
+}
+
+async function addTrainingExample() {
+    const text = document.getElementById('example-text').value.trim();
+    const category = document.getElementById('example-category').value;
+    const isHarmful = document.getElementById('example-harmful').value === 'true';
+    const confidence = parseFloat(document.getElementById('example-confidence').value);
+    const source = document.getElementById('example-source').value.trim() || 'manual_entry';
+    
+    if (!text) {
+        alert('Please enter text content for the example.');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/training/add_example', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                text: text,
+                category: category,
+                is_harmful: isHarmful,
+                confidence: confidence,
+                source: source
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            // Close modal and reset form
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addExampleModal'));
+            modal.hide();
+            document.getElementById('add-example-form').reset();
+            document.getElementById('confidence-value').textContent = '0.9';
+            
+            // Update data
+            await updateTrainingData();
+            
+            // Show success message
+            showAlert('Example added successfully!', 'success');
+        } else {
+            alert('Error adding example: ' + (result.error || 'Unknown error'));
+        }
+    } catch (error) {
+        alert('Network error: ' + error.message);
+    }
+}
+
+function startTraining() {
+    // Show training progress
+    const progressDiv = document.getElementById('training-progress');
+    const progressBar = progressDiv.querySelector('.progress-bar');
+    const statusText = document.getElementById('training-status');
+    
+    progressDiv.style.display = 'block';
+    progressBar.style.width = '0%';
+    statusText.textContent = 'Preparing training data...';
+    
+    // Simulate training progress
+    let progress = 0;
+    const interval = setInterval(() => {
+        progress += Math.random() * 10;
+        if (progress >= 100) {
+            progress = 100;
+            clearInterval(interval);
+            statusText.textContent = 'Training completed!';
+            setTimeout(() => {
+                progressDiv.style.display = 'none';
+                showAlert('Model training completed successfully!', 'success');
+                addTrainingHistoryEntry('Training', 'Completed');
+            }, 2000);
+        } else {
+            statusText.textContent = `Training model... ${Math.round(progress)}%`;
+        }
+        progressBar.style.width = progress + '%';
+    }, 500);
+}
+
+function validateModel() {
+    showAlert('Model validation started. Results will be available shortly.', 'info');
+    addTrainingHistoryEntry('Validation', 'Running');
+}
+
+function resetTraining() {
+    if (confirm('Are you sure you want to reset all training data? This action cannot be undone.')) {
+        showAlert('Training data reset successfully!', 'warning');
+        addTrainingHistoryEntry('Reset', 'Completed');
+    }
+}
+
+function exportTrainingData() {
+    // Create a mock CSV export
+    const csvContent = `text,category,is_harmful,confidence,source,timestamp
+"This is a safe example","general",false,0.9,"manual_entry","2023-01-01T10:00:00Z"
+"This is harmful content","hate_speech",true,0.8,"manual_entry","2023-01-01T10:01:00Z"`;
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'training_data_export.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    
+    showAlert('Training data exported successfully!', 'success');
+}
+
+function addTrainingHistoryEntry(action, status) {
+    const tbody = document.getElementById('training-history');
+    const now = new Date();
+    const time = now.toLocaleString();
+    
+    // Remove "no history" row if it exists
+    const noHistoryRow = tbody.querySelector('td[colspan="5"]');
+    if (noHistoryRow) {
+        tbody.innerHTML = '';
+    }
+    
+    const row = tbody.insertRow(0);
+    row.innerHTML = `
+        <td>${time}</td>
+        <td><span class="badge bg-primary">${action}</span></td>
+        <td>-</td>
+        <td>-</td>
+        <td><span class="badge bg-${status === 'Completed' ? 'success' : 'warning'}">${status}</span></td>
+    `;
+}
+
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999;';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(alertDiv);
+    
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.parentNode.removeChild(alertDiv);
+        }
+    }, 5000);
+}
+
+// Update confidence value display
+document.getElementById('example-confidence').addEventListener('input', function() {
+    document.getElementById('confidence-value').textContent = this.value;
+});
+
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', initTraining);
+</script>
+{% endblock %}

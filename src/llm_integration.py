@@ -90,4 +90,372 @@ class LLMIntegration:
         self.requests_per_minute = integration_config.get('requests_per_minute', 60)
         
         # Rate limiting
-        self._request_times: List[float] = []\n        self._last_cleanup = time.time()\n        \n        # Statistics\n        self._stats = {\n            'total_requests': 0,\n            'blocked_requests': 0,\n            'warned_requests': 0,\n            'allowed_requests': 0,\n            'failed_requests': 0,\n            'average_response_time': 0.0,\n            'total_response_time': 0.0,\n            'by_provider': {}\n        }\n        \n        # Custom LLM handlers\n        self._custom_handlers: Dict[LLMProvider, Callable] = {}\n        \n        logging.info(\"LLMIntegration initialized\")\n    \n    def register_custom_handler(self, provider: LLMProvider, handler: Callable):\n        \"\"\"\n        Register a custom handler for an LLM provider.\n        \n        Args:\n            provider: The LLM provider\n            handler: Async callable that takes (request, **kwargs) and returns response content\n        \"\"\"\n        self._custom_handlers[provider] = handler\n        logging.info(f\"Registered custom handler for {provider.value}\")\n    \n    async def process_request(\n        self, \n        request: LLMRequest,\n        check_input: bool = True,\n        check_output: bool = False\n    ) -> LLMResponse:\n        \"\"\"\n        Process an LLM request with compliance filtering.\n        \n        Args:\n            request: The LLM request to process\n            check_input: Whether to check input compliance\n            check_output: Whether to check output compliance\n            \n        Returns:\n            LLM response with compliance information\n        \"\"\"\n        start_time = time.time()\n        \n        try:\n            # Rate limiting check\n            if not self._check_rate_limit():\n                raise RuntimeError(\"Rate limit exceeded\")\n            \n            # Pre-processing compliance check\n            compliance_result = None\n            if check_input:\n                compliance_result = self.compliance_filter.check_compliance(\n                    request.prompt,\n                    user_context={\n                        'user_id': request.user_id,\n                        'session_id': request.session_id,\n                        'provider': request.provider.value,\n                        'model': request.model,\n                        **request.context or {}\n                    }\n                )\n                \n                # Handle compliance action\n                if compliance_result.action == ComplianceAction.BLOCK:\n                    self._update_stats('blocked', request.provider, time.time() - start_time)\n                    return self._create_blocked_response(request, compliance_result)\n                \n                elif compliance_result.action == ComplianceAction.WARN:\n                    logging.warning(f\"Compliance warning for request: {compliance_result.reasoning}\")\n                    self._update_stats('warned', request.provider, time.time() - start_time)\n            \n            # Make LLM API call\n            llm_response = await self._call_llm_api(request)\n            \n            # Post-processing compliance check\n            output_compliance_result = None\n            if check_output and llm_response:\n                output_compliance_result = self.compliance_filter.check_compliance(\n                    llm_response,\n                    user_context={\n                        'type': 'output_check',\n                        'user_id': request.user_id,\n                        'session_id': request.session_id,\n                        'provider': request.provider.value,\n                        'model': request.model\n                    }\n                )\n                \n                if output_compliance_result.action == ComplianceAction.BLOCK:\n                    logging.warning(\"LLM output blocked due to compliance violation\")\n                    llm_response = \"I apologize, but I cannot provide that response due to content policy violations.\"\n            \n            processing_time = time.time() - start_time\n            self._update_stats('allowed', request.provider, processing_time)\n            \n            # Create response\n            response = LLMResponse(\n                content=llm_response,\n                provider=request.provider,\n                model=request.model,\n                compliance_passed=True,\n                compliance_result=compliance_result or output_compliance_result\n            )\n            \n            # Request feedback if needed\n            if self.feedback_system and compliance_result:\n                if self.feedback_system.should_request_feedback(compliance_result):\n                    logging.info(\"Compliance result may benefit from feedback\")\n            \n            return response\n            \n        except Exception as e:\n            processing_time = time.time() - start_time\n            self._update_stats('failed', request.provider, processing_time)\n            logging.error(f\"Error processing LLM request: {e}\")\n            \n            return LLMResponse(\n                content=\"I apologize, but I encountered an error processing your request.\",\n                provider=request.provider,\n                model=request.model,\n                compliance_passed=False,\n                metadata={'error': str(e)}\n            )\n    \n    def _create_blocked_response(self, request: LLMRequest, compliance_result: ComplianceResult) -> LLMResponse:\n        \"\"\"Create a response for blocked requests.\"\"\"\n        blocked_message = (\n            \"I cannot process this request due to content policy violations. \"\n            f\"Reason: {compliance_result.reasoning}\"\n        )\n        \n        return LLMResponse(\n            content=blocked_message,\n            provider=request.provider,\n            model=request.model,\n            compliance_passed=False,\n            compliance_result=compliance_result\n        )\n    \n    async def _call_llm_api(self, request: LLMRequest) -> str:\n        \"\"\"\n        Make the actual LLM API call.\n        \n        Args:\n            request: The LLM request\n            \n        Returns:\n            Response content from the LLM\n        \"\"\"\n        # Check for custom handler\n        if request.provider in self._custom_handlers:\n            handler = self._custom_handlers[request.provider]\n            return await handler(request)\n        \n        # Built-in provider support\n        if request.provider == LLMProvider.OPENAI:\n            return await self._call_openai(request)\n        elif request.provider == LLMProvider.ANTHROPIC:\n            return await self._call_anthropic(request)\n        elif request.provider == LLMProvider.AZURE_OPENAI:\n            return await self._call_azure_openai(request)\n        elif request.provider == LLMProvider.HUGGING_FACE:\n            return await self._call_hugging_face(request)\n        else:\n            raise ValueError(f\"Unsupported LLM provider: {request.provider}\")\n    \n    async def _call_openai(self, request: LLMRequest) -> str:\n        \"\"\"Call OpenAI API.\"\"\"\n        try:\n            import openai\n            \n            response = await openai.ChatCompletion.acreate(\n                model=request.model,\n                messages=[\n                    {\"role\": \"user\", \"content\": request.prompt}\n                ],\n                **request.parameters\n            )\n            \n            return response.choices[0].message.content\n            \n        except ImportError:\n            raise ImportError(\"openai library not installed\")\n        except Exception as e:\n            logging.error(f\"OpenAI API call failed: {e}\")\n            raise\n    \n    async def _call_anthropic(self, request: LLMRequest) -> str:\n        \"\"\"Call Anthropic Claude API.\"\"\"\n        try:\n            import anthropic\n            \n            client = anthropic.AsyncAnthropic()\n            \n            response = await client.messages.create(\n                model=request.model,\n                max_tokens=request.parameters.get('max_tokens', 1000),\n                messages=[\n                    {\"role\": \"user\", \"content\": request.prompt}\n                ]\n            )\n            \n            return response.content[0].text\n            \n        except ImportError:\n            raise ImportError(\"anthropic library not installed\")\n        except Exception as e:\n            logging.error(f\"Anthropic API call failed: {e}\")\n            raise\n    \n    async def _call_azure_openai(self, request: LLMRequest) -> str:\n        \"\"\"Call Azure OpenAI API.\"\"\"\n        try:\n            import openai\n            \n            # Configure Azure OpenAI\n            openai.api_type = \"azure\"\n            openai.api_base = request.parameters.get('api_base')\n            openai.api_version = request.parameters.get('api_version', '2023-05-15')\n            openai.api_key = request.parameters.get('api_key')\n            \n            response = await openai.ChatCompletion.acreate(\n                engine=request.model,  # deployment name in Azure\n                messages=[\n                    {\"role\": \"user\", \"content\": request.prompt}\n                ],\n                **{k: v for k, v in request.parameters.items() \n                   if k not in ['api_base', 'api_version', 'api_key']}\n            )\n            \n            return response.choices[0].message.content\n            \n        except ImportError:\n            raise ImportError(\"openai library not installed\")\n        except Exception as e:\n            logging.error(f\"Azure OpenAI API call failed: {e}\")\n            raise\n    \n    async def _call_hugging_face(self, request: LLMRequest) -> str:\n        \"\"\"Call Hugging Face API.\"\"\"\n        try:\n            import aiohttp\n            \n            api_key = request.parameters.get('api_key')\n            if not api_key:\n                raise ValueError(\"Hugging Face API key required\")\n            \n            url = f\"https://api-inference.huggingface.co/models/{request.model}\"\n            headers = {\"Authorization\": f\"Bearer {api_key}\"}\n            payload = {\n                \"inputs\": request.prompt,\n                \"parameters\": {k: v for k, v in request.parameters.items() if k != 'api_key'}\n            }\n            \n            async with aiohttp.ClientSession() as session:\n                async with session.post(url, headers=headers, json=payload) as response:\n                    if response.status == 200:\n                        result = await response.json()\n                        if isinstance(result, list) and len(result) > 0:\n                            return result[0].get('generated_text', '')\n                        return str(result)\n                    else:\n                        error_text = await response.text()\n                        raise Exception(f\"HuggingFace API error: {error_text}\")\n                        \n        except ImportError:\n            raise ImportError(\"aiohttp library required for Hugging Face integration\")\n        except Exception as e:\n            logging.error(f\"Hugging Face API call failed: {e}\")\n            raise\n    \n    def _check_rate_limit(self) -> bool:\n        \"\"\"Check if request is within rate limits.\"\"\"\n        current_time = time.time()\n        \n        # Clean old requests (older than 1 minute)\n        if current_time - self._last_cleanup > 60:\n            cutoff_time = current_time - 60\n            self._request_times = [t for t in self._request_times if t > cutoff_time]\n            self._last_cleanup = current_time\n        \n        # Check rate limit\n        if len(self._request_times) >= self.requests_per_minute:\n            return False\n        \n        # Add current request time\n        self._request_times.append(current_time)\n        return True\n    \n    def _update_stats(self, status: str, provider: LLMProvider, processing_time: float):\n        \"\"\"Update internal statistics.\"\"\"\n        self._stats['total_requests'] += 1\n        self._stats[f'{status}_requests'] += 1\n        self._stats['total_response_time'] += processing_time\n        self._stats['average_response_time'] = (\n            self._stats['total_response_time'] / self._stats['total_requests']\n        )\n        \n        # Provider-specific stats\n        provider_name = provider.value\n        if provider_name not in self._stats['by_provider']:\n            self._stats['by_provider'][provider_name] = {\n                'total': 0, 'blocked': 0, 'warned': 0, 'allowed': 0, 'failed': 0\n            }\n        \n        self._stats['by_provider'][provider_name]['total'] += 1\n        self._stats['by_provider'][provider_name][status] += 1\n    \n    def batch_process_requests(\n        self, \n        requests: List[LLMRequest],\n        check_input: bool = True,\n        check_output: bool = False\n    ) -> List[LLMResponse]:\n        \"\"\"Process multiple requests concurrently.\"\"\"\n        async def process_batch():\n            tasks = [\n                self.process_request(req, check_input, check_output) \n                for req in requests\n            ]\n            return await asyncio.gather(*tasks, return_exceptions=True)\n        \n        return asyncio.run(process_batch())\n    \n    def get_statistics(self) -> Dict[str, Any]:\n        \"\"\"Get integration statistics.\"\"\"\n        return self._stats.copy()\n    \n    def export_audit_log(self, output_file: str, start_date: Optional[str] = None, end_date: Optional[str] = None):\n        \"\"\"Export audit logs for compliance reporting.\"\"\"\n        # This would typically read from persistent logs\n        # For now, we'll export current statistics\n        audit_data = {\n            'export_timestamp': time.strftime('%Y-%m-%d %H:%M:%S'),\n            'statistics': self.get_statistics(),\n            'compliance_stats': self.compliance_filter.get_performance_stats(),\n            'configuration': self.compliance_filter.get_configuration_summary()\n        }\n        \n        with open(output_file, 'w', encoding='utf-8') as f:\n            json.dump(audit_data, f, indent=2)\n        \n        logging.info(f\"Audit log exported to {output_file}\")\n    \n    def update_configuration(self, new_config: Dict[str, Any]):\n        \"\"\"Update integration configuration.\"\"\"\n        self.config.update(new_config)\n        \n        # Update specific settings\n        integration_config = self.config.get('llm_integration', {})\n        self.timeout_seconds = integration_config.get('timeout_seconds', self.timeout_seconds)\n        self.max_retries = integration_config.get('max_retries', self.max_retries)\n        self.retry_delay = integration_config.get('retry_delay', self.retry_delay)\n        self.requests_per_minute = integration_config.get('requests_per_minute', self.requests_per_minute)\n        \n        logging.info(\"LLM integration configuration updated\")\n    \n    def cleanup(self):\n        \"\"\"Clean up resources.\"\"\"\n        if self.compliance_filter:\n            self.compliance_filter.cleanup()\n        \n        logging.info(\"LLMIntegration resources cleaned up\")
+        self._request_times: List[float] = []      
+        self._last_cleanup = time.time()       
+        
+        self._stats = {
+            'total_requests': 0,
+            'blocked_requests': 0,
+            'warned_requests': 0,
+            'allowed_requests': 0,
+            'failed_requests': 0,
+            'average_response_time': 0.0,
+            'total_response_time': 0.0,
+            'by_provider': {}
+        }
+        
+        # Custom LLM handlers
+        self._custom_handlers: Dict[LLMProvider, Callable] = {}
+        
+        logging.info("LLMIntegration initialized")
+    
+    def register_custom_handler(self, provider: LLMProvider, handler: Callable):
+        """
+        Register a custom handler for an LLM provider.
+        
+        Args:
+            provider: The LLM provider
+            handler: Async callable that takes (request, **kwargs) and returns response content
+        """
+        self._custom_handlers[provider] = handler
+        logging.info(f"Registered custom handler for {provider.value}")
+    
+    async def process_request(
+        self, 
+        request: LLMRequest,
+        check_input: bool = True,
+        check_output: bool = False
+    ) -> LLMResponse:
+        """
+        Process an LLM request with compliance filtering.
+        
+        Args:
+            request: The LLM request to process
+            check_input: Whether to check input compliance
+            check_output: Whether to check output compliance
+            
+        Returns:
+            LLM response with compliance information
+        """
+        start_time = time.time()
+        
+        try:
+            # Rate limiting check
+            if not self._check_rate_limit():
+                raise RuntimeError("Rate limit exceeded")
+            
+            # Pre-processing compliance check
+            compliance_result = None
+            if check_input:
+                compliance_result = self.compliance_filter.check_compliance(
+                    request.prompt,
+                    user_context={
+                        'user_id': request.user_id,
+                        'session_id': request.session_id,
+                        'provider': request.provider.value,
+                        'model': request.model,
+                        **(request.context or {})
+                    }
+                )
+                
+                # Handle compliance action
+                if compliance_result.action == ComplianceAction.BLOCK:
+                    self._update_stats('blocked', request.provider, time.time() - start_time)
+                    return self._create_blocked_response(request, compliance_result)
+                
+                elif compliance_result.action == ComplianceAction.WARN:
+                    logging.warning(f"Compliance warning for request: {compliance_result.reasoning}")
+                    self._update_stats('warned', request.provider, time.time() - start_time)
+            
+            # Make LLM API call
+            llm_response = await self._call_llm_api(request)
+            
+            # Post-processing compliance check
+            output_compliance_result = None
+            if check_output and llm_response:
+                output_compliance_result = self.compliance_filter.check_compliance(
+                    llm_response,
+                    user_context={
+                        'type': 'output_check',
+                        'user_id': request.user_id,
+                        'session_id': request.session_id,
+                        'provider': request.provider.value,
+                        'model': request.model
+                    }
+                )
+                
+                if output_compliance_result.action == ComplianceAction.BLOCK:
+                    logging.warning("LLM output blocked due to compliance violation")
+                    llm_response = "I apologize, but I cannot provide that response due to content policy violations."
+            
+            processing_time = time.time() - start_time
+            self._update_stats('allowed', request.provider, processing_time)
+            
+            # Create response
+            response = LLMResponse(
+                content=llm_response,
+                provider=request.provider,
+                model=request.model,
+                compliance_passed=True,
+                compliance_result=compliance_result or output_compliance_result
+            )
+            
+            # Request feedback if needed
+            if self.feedback_system and compliance_result:
+                if self.feedback_system.should_request_feedback(compliance_result):
+                    logging.info("Compliance result may benefit from feedback")
+            
+            return response
+            
+        except Exception as e:
+            processing_time = time.time() - start_time
+            self._update_stats('failed', request.provider, processing_time)
+            logging.error(f"Error processing LLM request: {e}")
+            
+            return LLMResponse(
+                content="I apologize, but I encountered an error processing your request.",
+                provider=request.provider,
+                model=request.model,
+                compliance_passed=False,
+                metadata={'error': str(e)}
+            )
+    
+    def _create_blocked_response(self, request: LLMRequest, compliance_result: ComplianceResult) -> LLMResponse:
+        """Create a response for blocked requests."""
+        blocked_message = (
+            "I cannot process this request due to content policy violations. "
+            f"Reason: {compliance_result.reasoning}"
+        )
+        
+        return LLMResponse(
+            content=blocked_message,
+            provider=request.provider,
+            model=request.model,
+            compliance_passed=False,
+            compliance_result=compliance_result
+        )
+    
+    async def _call_llm_api(self, request: LLMRequest) -> str:
+        """
+        Make the actual LLM API call.
+        
+        Args:
+            request: The LLM request
+            
+        Returns:
+            Response content from the LLM
+        """
+        # Check for custom handler
+        if request.provider in self._custom_handlers:
+            handler = self._custom_handlers[request.provider]
+            return await handler(request)
+        
+        # Built-in provider support
+        if request.provider == LLMProvider.OPENAI:
+            return await self._call_openai(request)
+        elif request.provider == LLMProvider.ANTHROPIC:
+            return await self._call_anthropic(request)
+        elif request.provider == LLMProvider.AZURE_OPENAI:
+            return await self._call_azure_openai(request)
+        elif request.provider == LLMProvider.HUGGING_FACE:
+            return await self._call_hugging_face(request)
+        else:
+            raise ValueError(f"Unsupported LLM provider: {request.provider}")
+    
+    async def _call_openai(self, request: LLMRequest) -> str:
+        """Call OpenAI API."""
+        try:
+            import openai
+            
+            response = await openai.ChatCompletion.acreate(
+                model=request.model,
+                messages=[
+                    {"role": "user", "content": request.prompt}
+                ],
+                **request.parameters
+            )
+            
+            return response.choices[0].message.content
+            
+        except ImportError:
+            raise ImportError("openai library not installed")
+        except Exception as e:
+            logging.error(f"OpenAI API call failed: {e}")
+            raise
+    
+    async def _call_anthropic(self, request: LLMRequest) -> str:
+        """Call Anthropic Claude API."""
+        try:
+            import anthropic
+            
+            client = anthropic.AsyncAnthropic()
+            
+            response = await client.messages.create(
+                model=request.model,
+                max_tokens=request.parameters.get('max_tokens', 1000),
+                messages=[
+                    {"role": "user", "content": request.prompt}
+                ]
+            )
+            
+            return response.content[0].text
+            
+        except ImportError:
+            raise ImportError("anthropic library not installed")
+        except Exception as e:
+            logging.error(f"Anthropic API call failed: {e}")
+            raise
+    
+    async def _call_azure_openai(self, request: LLMRequest) -> str:
+        """Call Azure OpenAI API."""
+        try:
+            import openai
+            
+            # Configure Azure OpenAI
+            openai.api_type = "azure"
+            openai.api_base = request.parameters.get('api_base')
+            openai.api_version = request.parameters.get('api_version', '2023-05-15')
+            openai.api_key = request.parameters.get('api_key')
+            
+            response = await openai.ChatCompletion.acreate(
+                engine=request.model,  # deployment name in Azure
+                messages=[
+                    {"role": "user", "content": request.prompt}
+                ],
+                **{k: v for k, v in request.parameters.items() 
+                   if k not in ['api_base', 'api_version', 'api_key']}
+            )
+            
+            return response.choices[0].message.content
+            
+        except ImportError:
+            raise ImportError("openai library not installed")
+        except Exception as e:
+            logging.error(f"Azure OpenAI API call failed: {e}")
+            raise
+    
+    async def _call_hugging_face(self, request: LLMRequest) -> str:
+        """Call Hugging Face API."""
+        try:
+            import aiohttp
+            
+            api_key = request.parameters.get('api_key')
+            if not api_key:
+                raise ValueError("Hugging Face API key required")
+            
+            url = f"https://api-inference.huggingface.co/models/{request.model}"
+            headers = {"Authorization": f"Bearer {api_key}"}
+            payload = {
+                "inputs": request.prompt,
+                "parameters": {k: v for k, v in request.parameters.items() if k != 'api_key'}
+            }
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, headers=headers, json=payload) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        if isinstance(result, list) and len(result) > 0:
+                            return result[0].get('generated_text', '')
+                        return str(result)
+                    else:
+                        error_text = await response.text()
+                        raise Exception(f"HuggingFace API error: {error_text}")
+                        
+        except ImportError:
+            raise ImportError("aiohttp library required for Hugging Face integration")
+        except Exception as e:
+            logging.error(f"Hugging Face API call failed: {e}")
+            raise
+    
+    def _check_rate_limit(self) -> bool:
+        """Check if request is within rate limits."""
+        current_time = time.time()
+        
+        # Clean old requests (older than 1 minute)
+        if current_time - self._last_cleanup > 60:
+            cutoff_time = current_time - 60
+            self._request_times = [t for t in self._request_times if t > cutoff_time]
+            self._last_cleanup = current_time
+        
+        # Check rate limit
+        if len(self._request_times) >= self.requests_per_minute:
+            return False
+        
+        # Add current request time
+        self._request_times.append(current_time)
+        return True
+    
+    def _update_stats(self, status: str, provider: LLMProvider, processing_time: float):
+        """Update internal statistics."""
+        self._stats['total_requests'] += 1
+        self._stats[f'{status}_requests'] += 1
+        self._stats['total_response_time'] += processing_time
+        self._stats['average_response_time'] = (
+            self._stats['total_response_time'] / self._stats['total_requests']
+        )
+        
+        # Provider-specific stats
+        provider_name = provider.value
+        if provider_name not in self._stats['by_provider']:
+            self._stats['by_provider'][provider_name] = {
+                'total': 0, 'blocked': 0, 'warned': 0, 'allowed': 0, 'failed': 0
+            }
+        
+        self._stats['by_provider'][provider_name]['total'] += 1
+        self._stats['by_provider'][provider_name][status] += 1
+    
+    def batch_process_requests(
+        self, 
+        requests: List[LLMRequest],
+        check_input: bool = True,
+        check_output: bool = False
+    ) -> List[LLMResponse]:
+        """Process multiple requests concurrently."""
+        async def process_batch():
+            tasks = [
+                self.process_request(req, check_input, check_output) 
+                for req in requests
+            ]
+            return await asyncio.gather(*tasks, return_exceptions=True)
+        
+        return asyncio.run(process_batch())
+    
+    def get_statistics(self) -> Dict[str, Any]:
+        """Get integration statistics."""
+        return self._stats.copy()
+    
+    def export_audit_log(self, output_file: str, start_date: Optional[str] = None, end_date: Optional[str] = None):
+        """Export audit logs for compliance reporting."""
+        # This would typically read from persistent logs
+        # For now, we'll export current statistics
+        audit_data = {
+            'export_timestamp': time.strftime('%Y-%m-%d %H:%M:%S'),
+            'statistics': self.get_statistics(),
+            'compliance_stats': self.compliance_filter.get_performance_stats(),
+            'configuration': self.compliance_filter.get_configuration_summary()
+        }
+        
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(audit_data, f, indent=2)
+        
+        logging.info(f"Audit log exported to {output_file}")
+    
+    def update_configuration(self, new_config: Dict[str, Any]):
+        """Update integration configuration."""
+        self.config.update(new_config)
+        
+        # Update specific settings
+        integration_config = self.config.get('llm_integration', {})
+        self.timeout_seconds = integration_config.get('timeout_seconds', self.timeout_seconds)
+        self.max_retries = integration_config.get('max_retries', self.max_retries)
+        self.retry_delay = integration_config.get('retry_delay', self.retry_delay)
+        self.requests_per_minute = integration_config.get('requests_per_minute', self.requests_per_minute)
+        
+        logging.info("LLM integration configuration updated")
+    
+    def cleanup(self):
+        """Clean up resources."""
+        if self.compliance_filter:
+            self.compliance_filter.cleanup()
+        
+        logging.info("LLMIntegration resources cleaned up")

@@ -69,7 +69,7 @@ class HateSpeechDetector:
         self.hate_speech_config = self.config.get('hate_speech', {})
         
         # Model configuration
-        self.model_name = self.hate_speech_config.get('model_name', 'martin-ha/toxic-bert')
+        self.model_name = self.hate_speech_config.get('model_name', 'unitary/toxic-bert')
         self.threshold = self.hate_speech_config.get('threshold', 0.7)
         self.use_cache = self.hate_speech_config.get('use_cache', True)
         self.max_length = self.hate_speech_config.get('max_length', 512)
@@ -203,53 +203,72 @@ class HateSpeechDetector:
         max_toxic_score = 0.0
         primary_label = "non_toxic"
         
+        # Ensure results is a list and handle different formats
+        if not isinstance(results, list):
+            results = [results]
+        
         # Handle different model output formats
         if self.model_name in ['martin-ha/toxic-bert', 'unitary/toxic-bert']:
-            # These models typically output TOXIC/NON_TOXIC labels
-            for result in results:
-                label = result['label'].lower()
-                score = result['score']
-                all_scores[label] = score
-                
-                if 'toxic' in label and score > max_toxic_score:
-                    max_toxic_score = score
-                    primary_label = label
+            # These models may output multiple toxicity categories
+            for result_item in results:
+                # Handle nested list structure
+                if isinstance(result_item, list):
+                    for result in result_item:
+                        if isinstance(result, dict) and 'label' in result and 'score' in result:
+                            label = result['label'].lower()
+                            score = result['score']
+                            all_scores[label] = score
+                            
+                            if 'toxic' in label and score > max_toxic_score:
+                                max_toxic_score = score
+                                primary_label = label
+                elif isinstance(result_item, dict) and 'label' in result_item and 'score' in result_item:
+                    label = result_item['label'].lower()
+                    score = result_item['score']
+                    all_scores[label] = score
+                    
+                    if 'toxic' in label and score > max_toxic_score:
+                        max_toxic_score = score
+                        primary_label = label
         
         elif 'dehatebert' in self.model_name.lower():
             # DeHateBERT outputs HATE/NON_HATE
             for result in results:
-                label = result['label'].lower()
-                score = result['score']
-                all_scores[label] = score
-                
-                if 'hate' in label and score > max_toxic_score:
-                    max_toxic_score = score
-                    primary_label = label
+                if isinstance(result, dict) and 'label' in result and 'score' in result:
+                    label = result['label'].lower()
+                    score = result['score']
+                    all_scores[label] = score
+                    
+                    if 'hate' in label and score > max_toxic_score:
+                        max_toxic_score = score
+                        primary_label = label
         
         elif 'twitter-roberta' in self.model_name.lower():
             # Multi-class hate detection (hate, offensive, neither)
             for result in results:
-                label = result['label'].lower()
-                score = result['score']
-                all_scores[label] = score
-                
-                # Consider both 'hate' and 'offensive' as problematic
-                if label in ['hate', 'offensive'] and score > max_toxic_score:
-                    max_toxic_score = score
-                    primary_label = label
+                if isinstance(result, dict) and 'label' in result and 'score' in result:
+                    label = result['label'].lower()
+                    score = result['score']
+                    all_scores[label] = score
+                    
+                    # Consider both 'hate' and 'offensive' as problematic
+                    if label in ['hate', 'offensive'] and score > max_toxic_score:
+                        max_toxic_score = score
+                        primary_label = label
         
         else:
             # Generic handling for unknown models
             for result in results:
-                label = result['label'].lower()
-                score = result['score']
-                all_scores[label] = score
-                
-                # Look for common toxic/hate indicators
-                toxic_keywords = ['toxic', 'hate', 'offensive', 'harmful', 'abusive']
-                if any(keyword in label for keyword in toxic_keywords) and score > max_toxic_score:
-                    max_toxic_score = score
-                    primary_label = label
+                if isinstance(result, dict) and 'label' in result and 'score' in result:
+                    label = result['label'].lower()
+                    score = result['score']
+                    all_scores[label] = score
+                    
+                    # Look for common toxic/hate indicators
+                    toxic_keywords = ['toxic', 'hate', 'offensive', 'harmful', 'abusive']
+                    if any(keyword in label for keyword in toxic_keywords) and score > max_toxic_score:
+                        max_toxic_score = score
+                        primary_label = label
         
         return {
             'all_scores': all_scores,

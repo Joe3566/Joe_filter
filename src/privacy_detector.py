@@ -113,6 +113,36 @@ class PrivacyDetector:
                 r'\b(?:4\d{3}|5[1-5]\d{2}|6011|3[47]\d{2})[-\s]?(?:\d{4}[-\s]?){2,3}\d{4}\b'
             )
         
+        # API Key patterns (AWS, OpenAI, GitHub, etc.)
+        if self.enabled_checks.get('api_key_detection', True):
+            api_patterns = [
+                r'\b(sk-[A-Za-z0-9]{48})\b',  # OpenAI
+                r'\b(AKIA[0-9A-Z]{16})\b',  # AWS Access Key
+                r'\b(ghp_[A-Za-z0-9]{36})\b',  # GitHub Personal Access Token
+                r'\b(gho_[A-Za-z0-9]{36})\b',  # GitHub OAuth Token
+                r'\b(AIza[0-9A-Za-z\-_]{35})\b',  # Google API Key
+                r'\b(ya29\.[0-9A-Za-z\-_]+)\b',  # Google OAuth Token
+                r'\b(xox[baprs]-[0-9]{10,13}-[0-9]{10,13}-[A-Za-z0-9]{24,})\b',  # Slack Token
+                r'\b([a-z0-9]{32})\b',  # Generic 32-char hex key
+                r'\bapi[_-]?key["\s:=]+["\']?([A-Za-z0-9_\-]{20,})\b',  # API key assignment
+                r'\btoken["\s:=]+["\']?([A-Za-z0-9_\-]{20,})\b',  # Token assignment
+            ]
+            self.patterns[ViolationType.API_KEY] = re.compile(
+                '|'.join(api_patterns), re.IGNORECASE
+            )
+        
+        # Password patterns
+        if self.enabled_checks.get('password_detection', True):
+            password_patterns = [
+                r'\bpassword["\s:=]+["\']?([^"\s]{6,})\b',
+                r'\bpwd["\s:=]+["\']?([^"\s]{6,})\b',
+                r'\bpass["\s:=]+["\']?([^"\s]{6,})\b',
+                r'\bsecret["\s:=]+["\']?([A-Za-z0-9_\-]{8,})\b',
+            ]
+            self.patterns[ViolationType.TOKEN] = re.compile(
+                '|'.join(password_patterns), re.IGNORECASE
+            )
+        
         # IP Address patterns
         self.patterns[ViolationType.IP_ADDRESS] = re.compile(
             r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b'
@@ -217,15 +247,26 @@ class PrivacyDetector:
                 violations.append(violation)
             
             elif ent.label_ in ["GPE", "LOC"]:  # Geopolitical entity, location
-                violation = PrivacyViolation(
-                    violation_type=ViolationType.ADDRESS,
-                    confidence=0.6,
-                    text_span=ent.text,
-                    start_pos=ent.start_char,
-                    end_pos=ent.end_char,
-                    description=f"Detected location: {ent.text}"
-                )
-                violations.append(violation)
+                # Only flag as privacy violation if it looks like a specific address
+                # Don't flag general countries, cities, or regions in conversational context
+                text_lower = ent.text.lower()
+                context = text[max(0, ent.start_char - 20):ent.end_char + 20].lower()
+                
+                # Skip common country/city names in conversational contexts
+                skip_terms = ['france', 'paris', 'london', 'new york', 'usa', 'uk', 'germany', 'italy', 'spain']
+                conversational_contexts = ['capital of', 'what is', 'where is', 'about', 'from']
+                
+                if (text_lower not in skip_terms and 
+                    not any(ctx in context for ctx in conversational_contexts)):
+                    violation = PrivacyViolation(
+                        violation_type=ViolationType.ADDRESS,
+                        confidence=0.4,  # Lower confidence for general locations
+                        text_span=ent.text,
+                        start_pos=ent.start_char,
+                        end_pos=ent.end_char,
+                        description=f"Detected location: {ent.text}"
+                    )
+                    violations.append(violation)
             
             elif ent.label_ == "ORG":  # Organization
                 violation = PrivacyViolation(
@@ -308,23 +349,30 @@ class PrivacyDetector:
             ViolationType.PASSPORT: 0.9,
         }
         
-        # Calculate weighted score
-        total_score = 0.0
-        max_possible_score = 0.0
+        # Calculate weighted score using maximum risk approach
+        max_risk_score = 0.0
+        total_weighted_score = 0.0
         
         for violation in violations:
             weight = weights.get(violation.violation_type, 0.5)
             weighted_score = violation.confidence * weight
-            total_score += weighted_score
-            max_possible_score += weight
+            
+            # Track the highest individual risk
+            max_risk_score = max(max_risk_score, weighted_score)
+            
+            # Also accumulate total weighted score for severity calculation
+            total_weighted_score += weighted_score
         
-        if max_possible_score == 0:
+        if len(violations) == 0:
             return 0.0
         
-        # Normalize to 0-1 range
-        normalized_score = min(total_score / max_possible_score, 1.0)
+        # Use a combination of maximum risk and cumulative risk
+        # This ensures high-risk individual violations get high scores
+        # while multiple violations increase the overall score
+        cumulative_factor = min(len(violations) * 0.1, 0.5)  # Up to 50% boost for multiple violations
+        final_score = max_risk_score + (cumulative_factor * (total_weighted_score / len(violations)))
         
-        return normalized_score
+        return min(final_score, 1.0)
     
     def get_violation_summary(self, violations: List[PrivacyViolation]) -> Dict[str, Any]:
         """

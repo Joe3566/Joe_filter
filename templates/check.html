@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block title %}Check Content - LLM Compliance Filter{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="fas fa-search text-primary me-3"></i>Check Content</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="fas fa-edit text-primary me-2"></i>Content Input</h5>
+            </div>
+            <div class="card-body">
+                <form id="check-form">
+                    <div class="mb-3">
+                        <label for="content-text" class="form-label">Enter text to check:</label>
+                        <textarea class="form-control" id="content-text" rows="6" 
+                                placeholder="Enter the content you want to check for compliance..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="check-btn">
+                        <i class="fas fa-search me-2"></i>Check Compliance
+                    </button>
+                    <button type="button" class="btn btn-secondary ms-2" onclick="clearForm()">
+                        <i class="fas fa-trash me-2"></i>Clear
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="fas fa-info-circle text-primary me-2"></i>Quick Examples</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">Try these examples:</p>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-success btn-sm" onclick="setExample('What is the capital of France?')">
+                        Safe Content
+                    </button>
+                    <button class="btn btn-outline-warning btn-sm" onclick="setExample('My email is test@example.com')">
+                        Privacy Violation
+                    </button>
+                    <button class="btn btn-outline-danger btn-sm" onclick="setExample('I want to hurt someone badly')">
+                        Harmful Content
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Results Section -->
+<div class="row mt-4" id="results-section" style="display: none;">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="fas fa-chart-line text-primary me-2"></i>Compliance Results</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <div class="display-4" id="action-icon"></div>
+                            <h4 id="action-text" class="mt-2"></h4>
+                        </div>
+                    </div>
+                    <div class="col-md-9">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="border rounded p-3 text-center">
+                                    <h6 class="text-muted">Overall Score</h6>
+                                    <h3 id="overall-score" class="mb-0"></h3>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="border rounded p-3 text-center">
+                                    <h6 class="text-muted">Hate Speech</h6>
+                                    <h3 id="hate-score" class="mb-0"></h3>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="border rounded p-3 text-center">
+                                    <h6 class="text-muted">Privacy</h6>
+                                    <h3 id="privacy-score" class="mb-0"></h3>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <h6>Reasoning:</h6>
+                            <p id="reasoning" class="text-muted"></p>
+                        </div>
+                        
+                        <div id="violations-section" style="display: none;">
+                            <h6>Privacy Violations:</h6>
+                            <div id="violations-list"></div>
+                        </div>
+                        
+                        <div class="mt-2">
+                            <small class="text-muted">Processing Time: <span id="processing-time"></span></small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('check-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const text = document.getElementById('content-text').value.trim();
+    if (!text) {
+        alert('Please enter some text to check.');
+        return;
+    }
+    
+    const checkBtn = document.getElementById('check-btn');
+    checkBtn.disabled = true;
+    checkBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Checking...';
+    
+    try {
+        const response = await fetch('/api/check', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({text: text})
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            displayResults(result);
+        } else {
+            alert('Error: ' + (result.error || 'Unknown error'));
+        }
+    } catch (error) {
+        alert('Network error: ' + error.message);
+    } finally {
+        checkBtn.disabled = false;
+        checkBtn.innerHTML = '<i class="fas fa-search me-2"></i>Check Compliance';
+    }
+});
+
+function displayResults(result) {
+    // Show results section
+    document.getElementById('results-section').style.display = 'block';
+    
+    // Set action display
+    const actionIcons = {
+        'allow': {icon: '✓', class: 'text-success', text: 'ALLOWED'},
+        'warn': {icon: '⚠', class: 'text-warning', text: 'WARNING'},
+        'block': {icon: '✕', class: 'text-danger', text: 'BLOCKED'}
+    };
+    
+    const actionInfo = actionIcons[result.action];
+    document.getElementById('action-icon').innerHTML = actionInfo.icon;
+    document.getElementById('action-text').textContent = actionInfo.text;
+    document.getElementById('action-text').className = 'mt-2 ' + actionInfo.class;
+    
+    // Set scores
+    document.getElementById('overall-score').textContent = result.overall_score;
+    document.getElementById('hate-score').textContent = result.hate_speech_score;
+    document.getElementById('privacy-score').textContent = result.privacy_score;
+    
+    // Set reasoning
+    document.getElementById('reasoning').textContent = result.reasoning;
+    
+    // Set processing time
+    document.getElementById('processing-time').textContent = result.processing_time + 's';
+    
+    // Handle privacy violations
+    if (result.privacy_violations && result.privacy_violations.length > 0) {
+        document.getElementById('violations-section').style.display = 'block';
+        const violationsList = document.getElementById('violations-list');
+        violationsList.innerHTML = '';
+        
+        result.privacy_violations.forEach(violation => {
+            const badge = document.createElement('span');
+            badge.className = 'badge bg-warning me-2 mb-1';
+            badge.textContent = `${violation.type}: "${violation.text}" (${violation.confidence})`;
+            violationsList.appendChild(badge);
+        });
+    } else {
+        document.getElementById('violations-section').style.display = 'none';
+    }
+    
+    // Scroll to results
+    document.getElementById('results-section').scrollIntoView({behavior: 'smooth'});
+}
+
+function setExample(text) {
+    document.getElementById('content-text').value = text;
+}
+
+function clearForm() {
+    document.getElementById('content-text').value = '';
+    document.getElementById('results-section').style.display = 'none';
+}
+</script>
+{% endblock %}

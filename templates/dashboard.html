@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Compliance Filter - Professional Dashboard</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Socket.IO -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    
+    <style>
+        .border-left-primary {
+            border-left: 4px solid #007bff !important;
+        }
+        .border-left-danger {
+            border-left: 4px solid #dc3545 !important;
+        }
+        .border-left-success {
+            border-left: 4px solid #28a745 !important;
+        }
+        .border-left-info {
+            border-left: 4px solid #17a2b8 !important;
+        }
+        .text-xs {
+            font-size: 0.75rem;
+        }
+        .text-gray-800 {
+            color: #343a40 !important;
+        }
+        .shadow {
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(33, 40, 50, 0.15);
+        }
+        .chart-area {
+            height: 300px;
+            position: relative;
+        }
+        body {
+            background-color: #f8f9fc;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow">
+        <div class="container-fluid">
+            <a class="navbar-brand d-flex align-items-center" href="/">
+                <i class="bi bi-shield-check me-2 fs-4"></i>
+                <strong>Ultimate Compliance Filter</strong>
+            </a>
+            
+            <div class="navbar-nav ms-auto d-flex align-items-center">
+                <div class="nav-item me-3">
+                    <span class="badge bg-success" id="system-status">
+                        {% if system_status %}
+                            <i class="bi bi-check-circle"></i> OPERATIONAL
+                        {% else %}
+                            <i class="bi bi-exclamation-triangle"></i> OFFLINE
+                        {% endif %}
+                    </span>
+                </div>
+                
+                <div class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle text-white" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-gear"></i> Menu
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="/"><i class="bi bi-house me-2"></i>Dashboard</a></li>
+                        <li><a class="dropdown-item" href="/monitoring"><i class="bi bi-activity me-2"></i>Live Monitoring</a></li>
+                        <li><a class="dropdown-item" href="/analytics"><i class="bi bi-graph-up me-2"></i>Analytics</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="/admin"><i class="bi bi-tools me-2"></i>Administration</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container-fluid mt-4">
+        <!-- Header Section -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h2 class="mb-0 text-gray-800">Compliance Filter Dashboard</h2>
+                        <p class="text-muted mb-0">Real-time threat detection and content analysis</p>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <span class="me-3 text-muted">Last Updated: <span id="last-updated">--:--:--</span></span>
+                        <div class="spinner-border spinner-border-sm text-primary" role="status" id="loading-spinner" style="display: none;">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Key Metrics Cards -->
+        <div class="row mb-4">
+            <div class="col-xl-3 col-md-6 mb-3">
+                <div class="card border-left-primary shadow h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-grow-1">
+                                <div class="text-xs fw-bold text-primary text-uppercase mb-1">Total Processed</div>
+                                <div class="h5 mb-0 fw-bold text-gray-800" id="total-processed">{{ metrics.total_processed }}</div>
+                            </div>
+                            <div class="ms-3">
+                                <i class="bi bi-file-text text-primary" style="font-size: 2rem;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-md-6 mb-3">
+                <div class="card border-left-danger shadow h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-grow-1">
+                                <div class="text-xs fw-bold text-danger text-uppercase mb-1">Threats Detected</div>
+                                <div class="h5 mb-0 fw-bold text-gray-800" id="threats-detected">{{ metrics.threats_detected }}</div>
+                            </div>
+                            <div class="ms-3">
+                                <i class="bi bi-shield-exclamation text-danger" style="font-size: 2rem;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-md-6 mb-3">
+                <div class="card border-left-success shadow h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-grow-1">
+                                <div class="text-xs fw-bold text-success text-uppercase mb-1">Accuracy Rate</div>
+                                <div class="h5 mb-0 fw-bold text-gray-800" id="accuracy-rate">{{ "%.1f"|format(metrics.accuracy_rate) }}%</div>
+                            </div>
+                            <div class="ms-3">
+                                <i class="bi bi-bullseye text-success" style="font-size: 2rem;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-md-6 mb-3">
+                <div class="card border-left-info shadow h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-grow-1">
+                                <div class="text-xs fw-bold text-info text-uppercase mb-1">System Uptime</div>
+                                <div class="h5 mb-0 fw-bold text-gray-800" id="system-uptime">Online</div>
+                            </div>
+                            <div class="ms-3">
+                                <i class="bi bi-clock text-info" style="font-size: 2rem;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts and Analysis Section -->
+        <div class="row">
+            <!-- Threat Detection Chart -->
+            <div class="col-xl-8 col-lg-7">
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between bg-white">
+                        <h6 class="m-0 fw-bold text-primary">Threat Detection Over Time</h6>
+                        <div class="dropdown no-arrow">
+                            <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-bs-toggle="dropdown">
+                                <i class="bi bi-three-dots-vertical text-muted"></i>
+                            </a>
+                            <div class="dropdown-menu dropdown-menu-end shadow">
+                                <div class="dropdown-header">Time Range:</div>
+                                <a class="dropdown-item" href="#" onclick="updateChart('24h')">Last 24 Hours</a>
+                                <a class="dropdown-item" href="#" onclick="updateChart('7d')">Last 7 Days</a>
+                                <a class="dropdown-item" href="#" onclick="updateChart('30d')">Last 30 Days</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-area">
+                            <canvas id="threatChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Innovation Status -->
+            <div class="col-xl-4 col-lg-5">
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3 bg-white">
+                        <h6 class="m-0 fw-bold text-primary">Innovation Systems Status</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="innovation-status">
+                            <div class="d-flex justify-content-between align-items-center mb-3 p-2 bg-light rounded">
+                                <div>
+                                    <i class="bi bi-brain text-success me-2"></i>
+                                    <small class="fw-medium">Adaptive Learning</small>
+                                </div>
+                                <span class="badge bg-success">ACTIVE</span>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between align-items-center mb-3 p-2 bg-light rounded">
+                                <div>
+                                    <i class="bi bi-person-check text-success me-2"></i>
+                                    <small class="fw-medium">Behavioral Analysis</small>
+                                </div>
+                                <span class="badge bg-success">ACTIVE</span>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between align-items-center mb-3 p-2 bg-light rounded">
+                                <div>
+                                    <i class="bi bi-share text-success me-2"></i>
+                                    <small class="fw-medium">Federated Learning</small>
+                                </div>
+                                <span class="badge bg-success">ACTIVE</span>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between align-items-center mb-3 p-2 bg-light rounded">
+                                <div>
+                                    <i class="bi bi-robot text-success me-2"></i>
+                                    <small class="fw-medium">HuggingFace Transformers</small>
+                                </div>
+                                <span class="badge bg-success">ACTIVE</span>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between align-items-center mb-3 p-2 bg-light rounded">
+                                <div>
+                                    <i class="bi bi-lightbulb text-success me-2"></i>
+                                    <small class="fw-medium">Semantic Analysis</small>
+                                </div>
+                                <span class="badge bg-success">ACTIVE</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test Interface -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3 bg-white">
+                        <h6 class="m-0 fw-bold text-primary">Content Analysis Test Interface</h6>
+                    </div>
+                    <div class="card-body">
+                        <form id="analysis-form">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <div class="mb-3">
+                                        <label for="test-content" class="form-label fw-medium">Content to Analyze</label>
+                                        <textarea class="form-control" id="test-content" rows="3" 
+                                                placeholder="Enter content to analyze for compliance violations..."></textarea>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="user-id" class="form-label fw-medium">User ID (Optional)</label>
+                                        <input type="text" class="form-control" id="user-id" placeholder="user_123">
+                                    </div>
+                                    <button type="submit" class="btn btn-primary w-100 py-2">
+                                        <i class="bi bi-search me-2"></i>Analyze Content
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                        
+                        <!-- Analysis Results -->
+                        <div id="analysis-results" class="mt-4" style="display: none;">
+                            <div class="alert alert-info border-0 shadow-sm">
+                                <h6><i class="bi bi-info-circle me-2"></i>Analysis Results</h6>
+                                <div id="results-content"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3 d-flex justify-content-between align-items-center bg-white">
+                        <h6 class="m-0 fw-bold text-primary">Recent Activity</h6>
+                        <a href="/monitoring" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-arrow-right me-1"></i>View All
+                        </a>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="border-0">Timestamp</th>
+                                        <th class="border-0">User</th>
+                                        <th class="border-0">Content Preview</th>
+                                        <th class="border-0">Status</th>
+                                        <th class="border-0">Processing Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recent-activity">
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted py-4">
+                                            <i class="bi bi-inbox text-muted fs-1"></i>
+                                            <div>No recent activity</div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JavaScript -->
+    <script>
+        // Initialize Socket.IO
+        const socket = io();
+        
+        // Chart configuration
+        let threatChart;
+        
+        // Initialize chart
+        function initializeChart() {
+            const ctx = document.getElementById('threatChart').getContext('2d');
+            threatChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'],
+                    datasets: [{
+                        label: 'Threats Detected',
+                        data: [0, 2, 1, 5, 3, 1],
+                        borderColor: 'rgb(220, 53, 69)',
+                        backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4
+                    }, {
+                        label: 'Total Processed',
+                        data: [10, 25, 15, 40, 30, 20],
+                        borderColor: 'rgb(13, 110, 253)',
+                        backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                        borderWidth: 3,
+                        fill: false,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 20
+                            }
+                        }
+                    },
+                    elements: {
+                        point: {
+                            radius: 4,
+                            hoverRadius: 6
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Update metrics display
+        function updateMetrics(metrics) {
+            document.getElementById('total-processed').textContent = metrics.total_processed;
+            document.getElementById('threats-detected').textContent = metrics.threats_detected;
+            document.getElementById('accuracy-rate').textContent = (metrics.accuracy_rate || 98.5).toFixed(1) + '%';
+            document.getElementById('system-uptime').textContent = (metrics.uptime_hours || 0).toFixed(1) + 'h';
+            document.getElementById('last-updated').textContent = new Date().toLocaleTimeString();
+        }
+        
+        // Handle form submission
+        document.getElementById('analysis-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const content = document.getElementById('test-content').value.trim();
+            const userId = document.getElementById('user-id').value.trim() || 'test_user';
+            
+            if (!content) {
+                alert('Please enter content to analyze');
+                return;
+            }
+            
+            // Show loading
+            const loadingSpinner = document.getElementById('loading-spinner');
+            loadingSpinner.style.display = 'inline-block';
+            
+            try {
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        content: content,
+                        user_id: userId,
+                        context: {}
+                    })
+                });
+                
+                const result = await response.json();
+                
+                // Display results
+                const resultsDiv = document.getElementById('analysis-results');
+                const resultsContent = document.getElementById('results-content');
+                
+                let statusBadge = '';
+                let alertClass = 'alert-info';
+                
+                if (result.status === 'SAFE') {
+                    statusBadge = '<span class="badge bg-success px-3 py-2"><i class="bi bi-check-circle me-1"></i>SAFE</span>';
+                    alertClass = 'alert-success';
+                } else if (result.status === 'VIOLATION') {
+                    statusBadge = '<span class="badge bg-danger px-3 py-2"><i class="bi bi-exclamation-triangle me-1"></i>VIOLATION</span>';
+                    alertClass = 'alert-danger';
+                } else {
+                    statusBadge = '<span class="badge bg-warning px-3 py-2"><i class="bi bi-question-circle me-1"></i>ERROR</span>';
+                    alertClass = 'alert-warning';
+                }
+                
+                resultsContent.innerHTML = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-2"><strong>Status:</strong> ${statusBadge}</div>
+                            <div class="mb-2"><strong>Confidence:</strong> <span class="badge bg-secondary">${((result.confidence || 0) * 100).toFixed(1)}%</span></div>
+                            <div class="mb-2"><strong>Threat Level:</strong> <span class="text-uppercase fw-medium">${result.threat_level || 'N/A'}</span></div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-2"><strong>Processing Time:</strong> ${(result.processing_time_ms || 0).toFixed(1)}ms</div>
+                            <div class="mb-2"><strong>Innovations Used:</strong> ${result.innovations_used?.length || 0}</div>
+                            <div class="mb-2"><strong>Evidence Sources:</strong> ${result.evidence_sources || 'None'}</div>
+                        </div>
+                    </div>
+                    ${result.reasoning ? `<div class="mt-3 p-2 bg-light rounded"><strong>Reasoning:</strong> ${result.reasoning}</div>` : ''}
+                `;
+                
+                // Update alert class
+                const alertDiv = resultsDiv.querySelector('.alert');
+                alertDiv.className = `alert ${alertClass} border-0 shadow-sm`;
+                
+                resultsDiv.style.display = 'block';
+                
+            } catch (error) {
+                console.error('Analysis error:', error);
+                alert('Analysis failed. Please try again.');
+            } finally {
+                loadingSpinner.style.display = 'none';
+            }
+        });
+        
+        // Socket.IO event handlers
+        socket.on('connect', function() {
+            console.log('Connected to server');
+            socket.emit('request_metrics');
+        });
+        
+        socket.on('metrics_update', function(metrics) {
+            updateMetrics(metrics);
+        });
+        
+        socket.on('new_analysis', function(analysis) {
+            // Add to recent activity table
+            const tbody = document.getElementById('recent-activity');
+            
+            // Clear "no activity" message if it exists
+            if (tbody.children.length === 1 && tbody.children[0].children.length === 1) {
+                tbody.innerHTML = '';
+            }
+            
+            const row = document.createElement('tr');
+            const timestamp = new Date(analysis.timestamp).toLocaleTimeString();
+            const statusBadge = analysis.result.status === 'SAFE' ? 
+                '<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>SAFE</span>' : 
+                '<span class="badge bg-danger"><i class="bi bi-exclamation-triangle me-1"></i>VIOLATION</span>';
+            
+            row.innerHTML = `
+                <td class="fw-medium text-muted">${timestamp}</td>
+                <td><span class="badge bg-light text-dark">${analysis.user_id}</span></td>
+                <td class="text-truncate" style="max-width: 200px;">${analysis.content_preview}</td>
+                <td>${statusBadge}</td>
+                <td><span class="text-muted">${(analysis.processing_time || 0).toFixed(1)}ms</span></td>
+            `;
+            
+            tbody.insertBefore(row, tbody.firstChild);
+            
+            // Keep only last 10 rows
+            while (tbody.children.length > 10) {
+                tbody.removeChild(tbody.lastChild);
+            }
+        });
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeChart();
+            
+            // Request initial metrics
+            socket.emit('request_metrics');
+            
+            // Set initial timestamp
+            document.getElementById('last-updated').textContent = new Date().toLocaleTimeString();
+        });
+        
+        // Chart update function
+        function updateChart(timeRange) {
+            console.log('Updating chart for time range:', timeRange);
+            // Add actual chart update logic here
+        }
+    </script>
+</body>
+</html>

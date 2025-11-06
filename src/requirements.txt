@@ -1,0 +1,76 @@
+# Core Web Framework
+Flask==3.1.2
+Werkzeug>=3.1.0
+
+# Authentication & Security
+PyJWT==2.10.1
+bcrypt==4.2.1
+cryptography>=42.0.0
+
+# Multi-Factor Authentication
+pyotp==2.9.0
+qrcode[pil]==8.2
+
+# Database & ORM
+SQLAlchemy>=2.0.0
+
+# Image Processing (for QR codes)
+Pillow>=11.0.0
+
+# HTTP Requests (for OAuth)
+requests>=2.32.5
+
+# Time zone handling
+pytz>=2024.1
+
+# Configuration management
+python-decouple>=3.8
+
+# Data validation
+marshmallow>=3.22.0
+
+# Caching (optional but recommended)
+redis>=5.0.0
+
+# Development Dependencies (optional)
+# Uncomment for development
+# pytest>=8.0.0
+# pytest-cov>=5.0.0
+# black>=24.0.0
+# flake8>=7.0.0
+# mypy>=1.8.0
+
+# Production WSGI Server
+gunicorn>=22.0.0    # For Linux/Mac production
+gevent>=23.0.0      # For async worker support
+waitress>=3.0.0     # For Windows production
+
+# Monitoring & Logging
+structlog>=24.0.0
+sentry-sdk[flask]>=2.0.0
+
+# Environment Variables
+python-dotenv>=1.0.0
+
+# JSON Web Tokens additional support
+jwcrypto>=1.5.0
+
+# Rate limiting (optional)
+# flask-limiter>=3.0.0
+
+# CORS support (if needed)
+# flask-cors>=5.0.0
+
+# Database migrations
+alembic>=1.13.0
+psycopg2-binary>=2.9.0  # PostgreSQL adapter
+
+# Email support (for notifications)
+# flask-mail>=0.10.0
+
+# Celery for background tasks (optional)
+# celery>=5.3.0
+# kombu>=5.3.0
+
+# Health checks
+# flask-healthz>=1.0.1

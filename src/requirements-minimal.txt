@@ -1,0 +1,9 @@
+# Essential dependencies for basic functionality
+Flask==3.1.2
+PyJWT==2.10.1
+bcrypt==4.2.1
+pyotp==2.9.0
+qrcode[pil]==8.2
+Pillow>=11.0.0
+requests>=2.32.5
+python-dotenv>=1.0.0

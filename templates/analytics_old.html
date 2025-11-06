@@ -1,0 +1,380 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics - LLM Compliance Filter{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="fas fa-chart-bar text-primary me-3"></i>Analytics & Reports</h1>
+    <div class="dropdown">
+        <button class="btn btn-outline-primary dropdown-toggle" type="button" id="timeFilter" data-bs-toggle="dropdown">
+            <i class="fas fa-clock me-2"></i>Time Range
+        </button>
+        <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="#" data-range="24h">Last 24 Hours</a></li>
+            <li><a class="dropdown-item" href="#" data-range="7d">Last 7 Days</a></li>
+            <li><a class="dropdown-item" href="#" data-range="30d">Last 30 Days</a></li>
+        </ul>
+    </div>
+</div>
+
+<!-- Summary Row -->
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="card stats-card h-100">
+            <div class="card-body text-center">
+                <h5 class="card-title text-muted">Total Compliance Checks</h5>
+                <h2 class="text-primary mb-0" id="total-analytics">0</h2>
+                <small class="text-success" id="change-total">+0 from previous period</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card stats-card h-100">
+            <div class="card-body text-center">
+                <h5 class="card-title text-muted">Average Response Time</h5>
+                <h2 class="text-info mb-0" id="avg-response">0.0s</h2>
+                <small class="text-success" id="change-response">-0ms from previous period</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card stats-card h-100">
+            <div class="card-body text-center">
+                <h5 class="card-title text-muted">Block Rate</h5>
+                <h2 class="text-danger mb-0" id="block-rate">0.0%</h2>
+                <small class="text-warning" id="change-block">+0% from previous period</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="fas fa-line-chart text-primary me-2"></i>Activity Timeline</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="timelineChart" height="100"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="fas fa-pie-chart text-primary me-2"></i>Action Distribution</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="actionChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Categories and Violations Row -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="fas fa-tags text-primary me-2"></i>Privacy Violation Categories</h5>
+            </div>
+            <div class="card-body">
+                <div id="categories-list">
+                    <div class="text-center text-muted">
+                        <i class="fas fa-chart-bar fa-3x mb-3"></i>
+                        <p>No violations detected yet</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="fas fa-clock text-primary me-2"></i>Hourly Activity</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="hourlyChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Performance Metrics -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="fas fa-tachometer-alt text-primary me-2"></i>Performance Metrics</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th>Current</th>
+                                <th>Average</th>
+                                <th>Best</th>
+                                <th>Worst</th>
+                                <th>Trend</th>
+                            </tr>
+                        </thead>
+                        <tbody id="performance-metrics">
+                            <tr>
+                                <td>Response Time</td>
+                                <td id="current-response">--</td>
+                                <td id="avg-response-metric">--</td>
+                                <td id="best-response">--</td>
+                                <td id="worst-response">--</td>
+                                <td><span class="badge bg-success">Good</span></td>
+                            </tr>
+                            <tr>
+                                <td>Accuracy Rate</td>
+                                <td id="current-accuracy">--</td>
+                                <td id="avg-accuracy">--</td>
+                                <td id="best-accuracy">--</td>
+                                <td id="worst-accuracy">--</td>
+                                <td><span class="badge bg-success">Stable</span></td>
+                            </tr>
+                            <tr>
+                                <td>False Positive Rate</td>
+                                <td id="current-fp">--</td>
+                                <td id="avg-fp">--</td>
+                                <td id="best-fp">--</td>
+                                <td id="worst-fp">--</td>
+                                <td><span class="badge bg-warning">Monitor</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let timelineChart, actionChart, hourlyChart;
+
+// Initialize analytics dashboard
+async function initAnalytics() {
+    await updateAnalytics();
+    initCharts();
+    setInterval(updateAnalytics, 5000); // Update every 5 seconds
+}
+
+async function updateAnalytics() {
+    try {
+        const response = await fetch('/api/stats');
+        const stats = await response.json();
+        
+        updateSummaryCards(stats);
+        updateCharts(stats);
+        updateCategories(stats);
+        updatePerformanceMetrics(stats);
+        
+    } catch (error) {
+        console.error('Error updating analytics:', error);
+    }
+}
+
+function updateSummaryCards(stats) {
+    document.getElementById('total-analytics').textContent = stats.total_checks || 0;
+    
+    // Calculate average response time
+    let avgResponse = 0;
+    if (stats.recent_checks && stats.recent_checks.length > 0) {
+        const totalTime = stats.recent_checks.reduce((sum, check) => sum + check.processing_time, 0);
+        avgResponse = totalTime / stats.recent_checks.length;
+    }
+    document.getElementById('avg-response').textContent = avgResponse.toFixed(2) + 's';
+    
+    // Calculate block rate
+    const totalActions = (stats.actions.allow || 0) + (stats.actions.warn || 0) + (stats.actions.block || 0);
+    const blockRate = totalActions > 0 ? ((stats.actions.block || 0) / totalActions * 100) : 0;
+    document.getElementById('block-rate').textContent = blockRate.toFixed(1) + '%';
+}
+
+function initCharts() {
+    // Timeline Chart
+    const timelineCtx = document.getElementById('timelineChart').getContext('2d');
+    timelineChart = new Chart(timelineCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: 'Allowed',
+                    data: [],
+                    borderColor: '#28a745',
+                    backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                    tension: 0.4
+                },
+                {
+                    label: 'Warnings',
+                    data: [],
+                    borderColor: '#ffc107',
+                    backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                    tension: 0.4
+                },
+                {
+                    label: 'Blocked',
+                    data: [],
+                    borderColor: '#dc3545',
+                    backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'top'
+                }
+            }
+        }
+    });
+    
+    // Action Distribution Chart
+    const actionCtx = document.getElementById('actionChart').getContext('2d');
+    actionChart = new Chart(actionCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Allowed', 'Warnings', 'Blocked'],
+            datasets: [{
+                data: [0, 0, 0],
+                backgroundColor: ['#28a745', '#ffc107', '#dc3545'],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+    
+    // Hourly Activity Chart
+    const hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
+    hourlyChart = new Chart(hourlyCtx, {
+        type: 'bar',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Total Checks',
+                data: [],
+                backgroundColor: '#007bff',
+                borderColor: '#007bff',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+function updateCharts(stats) {
+    // Update action distribution chart
+    const actionData = [
+        stats.actions.allow || 0,
+        stats.actions.warn || 0,
+        stats.actions.block || 0
+    ];
+    actionChart.data.datasets[0].data = actionData;
+    actionChart.update();
+    
+    // Update hourly chart
+    if (stats.hourly_stats) {
+        const hours = Object.keys(stats.hourly_stats).sort();
+        const hourlyData = hours.map(hour => {
+            const hourStats = stats.hourly_stats[hour];
+            return (hourStats.allow || 0) + (hourStats.warn || 0) + (hourStats.block || 0);
+        });
+        
+        hourlyChart.data.labels = hours;
+        hourlyChart.data.datasets[0].data = hourlyData;
+        hourlyChart.update();
+        
+        // Update timeline chart with hourly data
+        timelineChart.data.labels = hours;
+        timelineChart.data.datasets[0].data = hours.map(hour => stats.hourly_stats[hour].allow || 0);
+        timelineChart.data.datasets[1].data = hours.map(hour => stats.hourly_stats[hour].warn || 0);
+        timelineChart.data.datasets[2].data = hours.map(hour => stats.hourly_stats[hour].block || 0);
+        timelineChart.update();
+    }
+}
+
+function updateCategories(stats) {
+    const categoriesList = document.getElementById('categories-list');
+    
+    if (!stats.categories || Object.keys(stats.categories).length === 0) {
+        categoriesList.innerHTML = `
+            <div class="text-center text-muted">
+                <i class="fas fa-chart-bar fa-3x mb-3"></i>
+                <p>No violations detected yet</p>
+            </div>
+        `;
+        return;
+    }
+    
+    const sortedCategories = Object.entries(stats.categories)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 10); // Show top 10
+    
+    categoriesList.innerHTML = sortedCategories.map(([category, count]) => `
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="badge bg-secondary">${category}</span>
+            <span class="fw-bold">${count}</span>
+        </div>
+    `).join('');
+}
+
+function updatePerformanceMetrics(stats) {
+    if (stats.recent_checks && stats.recent_checks.length > 0) {
+        const times = stats.recent_checks.map(check => check.processing_time);
+        const latest = times[times.length - 1];
+        const average = times.reduce((a, b) => a + b, 0) / times.length;
+        const min = Math.min(...times);
+        const max = Math.max(...times);
+        
+        document.getElementById('current-response').textContent = latest.toFixed(3) + 's';
+        document.getElementById('avg-response-metric').textContent = average.toFixed(3) + 's';
+        document.getElementById('best-response').textContent = min.toFixed(3) + 's';
+        document.getElementById('worst-response').textContent = max.toFixed(3) + 's';
+    }
+    
+    // Mock accuracy metrics (in a real implementation, you'd calculate these from validation data)
+    document.getElementById('current-accuracy').textContent = '94.2%';
+    document.getElementById('avg-accuracy').textContent = '93.8%';
+    document.getElementById('best-accuracy').textContent = '96.1%';
+    document.getElementById('worst-accuracy').textContent = '91.3%';
+    
+    document.getElementById('current-fp').textContent = '2.1%';
+    document.getElementById('avg-fp').textContent = '2.3%';
+    document.getElementById('best-fp').textContent = '1.8%';
+    document.getElementById('worst-fp').textContent = '3.2%';
+}
+
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', initAnalytics);
+</script>
+{% endblock %}

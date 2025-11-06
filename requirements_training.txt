@@ -1,0 +1,37 @@
+# Enhanced Training Dependencies for LLM Compliance Filter
+# Install with: pip install -r requirements_training.txt
+
+# Core training dependencies
+torch>=2.0.0
+transformers>=4.30.0
+datasets>=2.12.0
+scikit-learn>=1.3.0
+
+# Data processing and analysis
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Evaluation and metrics
+evaluate>=0.4.0
+seaborn>=0.12.0
+matplotlib>=3.7.0
+
+# Advanced ML utilities
+accelerate>=0.20.0
+optuna>=3.2.0  # For hyperparameter optimization
+
+# Text processing
+nltk>=3.8.1
+spacy>=3.6.0
+
+# Async processing for ensemble models
+aiofiles>=23.1.0
+asyncio-throttle>=1.0.2
+
+# Optional but recommended
+wandb>=0.15.0  # For experiment tracking
+tensorboard>=2.13.0  # For training visualization
+
+# Development tools
+jupyter>=1.0.0
+ipywidgets>=8.0.0

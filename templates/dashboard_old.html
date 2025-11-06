@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - LLM Compliance Filter{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="fas fa-tachometer-alt text-primary me-3"></i>Compliance Dashboard</h1>
+    <div class="badge bg-success fs-6" id="status">System Online</div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card stats-card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-title">Total Checks</h6>
+                        <h2 class="mb-0" id="total-checks">0</h2>
+                    </div>
+                    <i class="fas fa-search fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card stats-card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-title">Allowed</h6>
+                        <h2 class="mb-0" id="allowed-count">0</h2>
+                    </div>
+                    <i class="fas fa-check-circle fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card stats-card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-title">Warnings</h6>
+                        <h2 class="mb-0" id="warning-count">0</h2>
+                    </div>
+                    <i class="fas fa-exclamation-triangle fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card stats-card bg-danger text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-title">Blocked</h6>
+                        <h2 class="mb-0" id="blocked-count">0</h2>
+                    </div>
+                    <i class="fas fa-ban fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="fas fa-history text-primary me-2"></i>Recent Activity</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover" id="recent-activity">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Action</th>
+                                <th>Score</th>
+                                <th>Processing Time</th>
+                                <th>Reasoning</th>
+                            </tr>
+                        </thead>
+                        <tbody id="activity-tbody">
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">No activity yet</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let stats = {};
+
+// Initialize dashboard
+async function initDashboard() {
+    await updateStats();
+    setInterval(updateStats, 3000); // Update every 3 seconds
+}
+
+async function updateStats() {
+    try {
+        const response = await fetch('/api/stats');
+        stats = await response.json();
+        
+        document.getElementById('total-checks').textContent = stats.total_checks || 0;
+        document.getElementById('allowed-count').textContent = stats.actions.allow || 0;
+        document.getElementById('warning-count').textContent = stats.actions.warn || 0;
+        document.getElementById('blocked-count').textContent = stats.actions.block || 0;
+        
+        updateRecentActivity();
+        
+        document.getElementById('status').textContent = 'System Online';
+        document.getElementById('status').className = 'badge bg-success fs-6';
+    } catch (error) {
+        console.error('Error updating stats:', error);
+        document.getElementById('status').textContent = 'System Error';
+        document.getElementById('status').className = 'badge bg-danger fs-6';
+    }
+}
+
+function updateRecentActivity() {
+    const tbody = document.getElementById('activity-tbody');
+    tbody.innerHTML = '';
+    
+    if (!stats.recent_checks || stats.recent_checks.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No activity yet</td></tr>';
+        return;
+    }
+    
+    stats.recent_checks.slice(-10).reverse().forEach(check => {
+        const row = tbody.insertRow();
+        const time = new Date(check.timestamp).toLocaleTimeString();
+        const actionClass = `status-${check.action}`;
+        const actionIcon = check.action === 'allow' ? 'check-circle' : 
+                          check.action === 'warn' ? 'exclamation-triangle' : 'ban';
+        
+        row.innerHTML = `
+            <td>${time}</td>
+            <td><span class="${actionClass}"><i class="fas fa-${actionIcon} me-1"></i>${check.action.toUpperCase()}</span></td>
+            <td><span class="badge bg-secondary">${check.score.toFixed(3)}</span></td>
+            <td>${check.processing_time.toFixed(3)}s</td>
+            <td class="text-truncate" style="max-width: 200px;">${check.reasoning || 'N/A'}</td>
+        `;
+    });
+}
+
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', initDashboard);
+</script>
+{% endblock %}
