@@ -586,7 +586,400 @@ def health():
         'initialized': system.is_initialized,
         'enhanced_detector': system.enhanced_detector is not None,
         'ml_filter': system.ml_filter is not None,
-        'openai_enabled': openai_enabled
+        'openai_enabled': openai_enabled,
+        'privacy_detector': system.privacy_detector is not None
+    })
+
+
+# ===== CONTEXT-SPECIFIC THREAT DETECTION APIs =====
+
+@app.route('/api/detect/school-threat', methods=['POST'])
+def detect_school_threat():
+    """Detect school violence threats"""
+    try:
+        from context_specific_threats import ContextSpecificThreatDetector, ThreatCategory
+        
+        data = request.get_json()
+        text = data.get('text', '')
+        
+        if not text:
+            return jsonify({'error': 'No text provided'}), 400
+        
+        detector = ContextSpecificThreatDetector()
+        result = detector.detect(text)
+        
+        # Filter to only school threats
+        if result.detected and result.category == ThreatCategory.SCHOOL_THREAT:
+            return jsonify({
+                'detected': True,
+                'category': 'school_threat',
+                'severity': result.severity,
+                'confidence': result.confidence,
+                'explanation': result.explanation,
+                'matched_patterns_count': len(result.matched_patterns)
+            })
+        
+        return jsonify({'detected': False, 'category': 'school_threat'})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/detect/self-harm', methods=['POST'])
+def detect_self_harm():
+    """Detect self-harm content including methods and encouragement"""
+    try:
+        from context_specific_threats import ContextSpecificThreatDetector, ThreatCategory
+        
+        data = request.get_json()
+        text = data.get('text', '')
+        
+        if not text:
+            return jsonify({'error': 'No text provided'}), 400
+        
+        detector = ContextSpecificThreatDetector()
+        result = detector.detect(text)
+        
+        if result.detected and result.category == ThreatCategory.SELF_HARM:
+            return jsonify({
+                'detected': True,
+                'category': 'self_harm',
+                'severity': result.severity,
+                'confidence': result.confidence,
+                'explanation': result.explanation,
+                'matched_patterns_count': len(result.matched_patterns),
+                'warning': 'CRITICAL: Self-harm content detected. Immediate intervention may be required.'
+            })
+        
+        return jsonify({'detected': False, 'category': 'self_harm'})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/detect/drug-manufacturing', methods=['POST'])
+def detect_drug_manufacturing():
+    """Detect drug manufacturing instructions"""
+    try:
+        from context_specific_threats import ContextSpecificThreatDetector, ThreatCategory
+        
+        data = request.get_json()
+        text = data.get('text', '')
+        
+        if not text:
+            return jsonify({'error': 'No text provided'}), 400
+        
+        detector = ContextSpecificThreatDetector()
+        result = detector.detect(text)
+        
+        if result.detected and result.category == ThreatCategory.DRUG_MANUFACTURING:
+            return jsonify({
+                'detected': True,
+                'category': 'drug_manufacturing',
+                'severity': result.severity,
+                'confidence': result.confidence,
+                'explanation': result.explanation,
+                'matched_patterns_count': len(result.matched_patterns)
+            })
+        
+        return jsonify({'detected': False, 'category': 'drug_manufacturing'})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/detect/weapons', methods=['POST'])
+def detect_weapons():
+    """Detect specific weapons and explosives"""
+    try:
+        from context_specific_threats import ContextSpecificThreatDetector, ThreatCategory
+        
+        data = request.get_json()
+        text = data.get('text', '')
+        
+        if not text:
+            return jsonify({'error': 'No text provided'}), 400
+        
+        detector = ContextSpecificThreatDetector()
+        result = detector.detect(text)
+        
+        if result.detected and result.category == ThreatCategory.SPECIFIC_WEAPON:
+            return jsonify({
+                'detected': True,
+                'category': 'specific_weapon',
+                'severity': result.severity,
+                'confidence': result.confidence,
+                'explanation': result.explanation,
+                'matched_patterns_count': len(result.matched_patterns)
+            })
+        
+        return jsonify({'detected': False, 'category': 'specific_weapon'})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/detect/workplace-violence', methods=['POST'])
+def detect_workplace_violence():
+    """Detect workplace violence threats"""
+    try:
+        from context_specific_threats import ContextSpecificThreatDetector, ThreatCategory
+        
+        data = request.get_json()
+        text = data.get('text', '')
+        
+        if not text:
+            return jsonify({'error': 'No text provided'}), 400
+        
+        detector = ContextSpecificThreatDetector()
+        result = detector.detect(text)
+        
+        if result.detected and result.category == ThreatCategory.WORKPLACE_VIOLENCE:
+            return jsonify({
+                'detected': True,
+                'category': 'workplace_violence',
+                'severity': result.severity,
+                'confidence': result.confidence,
+                'explanation': result.explanation,
+                'matched_patterns_count': len(result.matched_patterns)
+            })
+        
+        return jsonify({'detected': False, 'category': 'workplace_violence'})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/detect/target-threat', methods=['POST'])
+def detect_target_threat():
+    """Detect target-specific threats (government, mass casualty)"""
+    try:
+        from context_specific_threats import ContextSpecificThreatDetector, ThreatCategory
+        
+        data = request.get_json()
+        text = data.get('text', '')
+        
+        if not text:
+            return jsonify({'error': 'No text provided'}), 400
+        
+        detector = ContextSpecificThreatDetector()
+        result = detector.detect(text)
+        
+        if result.detected and result.category == ThreatCategory.TARGET_THREAT:
+            return jsonify({
+                'detected': True,
+                'category': 'target_threat',
+                'severity': result.severity,
+                'confidence': result.confidence,
+                'explanation': result.explanation,
+                'matched_patterns_count': len(result.matched_patterns)
+            })
+        
+        return jsonify({'detected': False, 'category': 'target_threat'})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/detect/sexual-violence', methods=['POST'])
+def detect_sexual_violence():
+    """Detect sexual violence and exploitation content"""
+    try:
+        from context_specific_threats import ContextSpecificThreatDetector, ThreatCategory
+        
+        data = request.get_json()
+        text = data.get('text', '')
+        
+        if not text:
+            return jsonify({'error': 'No text provided'}), 400
+        
+        detector = ContextSpecificThreatDetector()
+        result = detector.detect(text)
+        
+        if result.detected and result.category == ThreatCategory.SEXUAL_VIOLENCE:
+            return jsonify({
+                'detected': True,
+                'category': 'sexual_violence',
+                'severity': result.severity,
+                'confidence': result.confidence,
+                'explanation': result.explanation,
+                'matched_patterns_count': len(result.matched_patterns),
+                'warning': 'CRITICAL: Sexual violence content detected.'
+            })
+        
+        return jsonify({'detected': False, 'category': 'sexual_violence'})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/detect/medical-misinformation', methods=['POST'])
+def detect_medical_misinformation():
+    """Detect medical misinformation and dangerous health advice"""
+    try:
+        from context_specific_threats import ContextSpecificThreatDetector, ThreatCategory
+        
+        data = request.get_json()
+        text = data.get('text', '')
+        
+        if not text:
+            return jsonify({'error': 'No text provided'}), 400
+        
+        detector = ContextSpecificThreatDetector()
+        result = detector.detect(text)
+        
+        if result.detected and result.category == ThreatCategory.MEDICAL_MISINFORMATION:
+            return jsonify({
+                'detected': True,
+                'category': 'medical_misinformation',
+                'severity': result.severity,
+                'confidence': result.confidence,
+                'explanation': result.explanation,
+                'matched_patterns_count': len(result.matched_patterns)
+            })
+        
+        return jsonify({'detected': False, 'category': 'medical_misinformation'})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/detect/explicit-content', methods=['POST'])
+def detect_explicit_content():
+    """Detect explicit sexual content generation requests"""
+    try:
+        from context_specific_threats import ContextSpecificThreatDetector, ThreatCategory
+        
+        data = request.get_json()
+        text = data.get('text', '')
+        
+        if not text:
+            return jsonify({'error': 'No text provided'}), 400
+        
+        detector = ContextSpecificThreatDetector()
+        result = detector.detect(text)
+        
+        if result.detected and result.category == ThreatCategory.EXPLICIT_SEXUAL_CONTENT:
+            return jsonify({
+                'detected': True,
+                'category': 'explicit_sexual_content',
+                'severity': result.severity,
+                'confidence': result.confidence,
+                'explanation': result.explanation,
+                'matched_patterns_count': len(result.matched_patterns)
+            })
+        
+        return jsonify({'detected': False, 'category': 'explicit_sexual_content'})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/detect/privacy', methods=['POST'])
+def detect_privacy():
+    """Detect privacy violations and PII in content"""
+    try:
+        data = request.get_json()
+        text = data.get('text', '')
+        
+        if not text:
+            return jsonify({'error': 'No text provided'}), 400
+        
+        if not system.privacy_detector:
+            return jsonify({'error': 'Privacy detector not available'}), 503
+        
+        result = system.privacy_detector.detect(text)
+        
+        return jsonify({
+            'detected': result.has_violations,
+            'risk_level': result.risk_level,
+            'privacy_score': result.privacy_score,
+            'violations': [
+                {
+                    'category': v.category.value,
+                    'severity': v.severity,
+                    'confidence': v.confidence,
+                    'masked_value': v.masked_value,
+                    'description': v.description
+                }
+                for v in result.violations
+            ],
+            'explanation': result.explanation,
+            'total_violations': len(result.violations)
+        })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/categories')
+def list_categories():
+    """List all available threat detection categories"""
+    return jsonify({
+        'categories': [
+            {
+                'name': 'school_threat',
+                'endpoint': '/api/detect/school-threat',
+                'severity': 'critical',
+                'description': 'School and campus violence threats'
+            },
+            {
+                'name': 'self_harm',
+                'endpoint': '/api/detect/self-harm',
+                'severity': 'critical',
+                'description': 'Self-harm methods and encouragement'
+            },
+            {
+                'name': 'drug_manufacturing',
+                'endpoint': '/api/detect/drug-manufacturing',
+                'severity': 'high',
+                'description': 'Drug production instructions'
+            },
+            {
+                'name': 'specific_weapon',
+                'endpoint': '/api/detect/weapons',
+                'severity': 'high',
+                'description': 'Specific weapons and explosives'
+            },
+            {
+                'name': 'workplace_violence',
+                'endpoint': '/api/detect/workplace-violence',
+                'severity': 'critical',
+                'description': 'Workplace violence threats'
+            },
+            {
+                'name': 'target_threat',
+                'endpoint': '/api/detect/target-threat',
+                'severity': 'critical',
+                'description': 'Government and mass casualty targets'
+            },
+            {
+                'name': 'sexual_violence',
+                'endpoint': '/api/detect/sexual-violence',
+                'severity': 'critical',
+                'description': 'Sexual violence and exploitation'
+            },
+            {
+                'name': 'medical_misinformation',
+                'endpoint': '/api/detect/medical-misinformation',
+                'severity': 'high',
+                'description': 'Dangerous medical advice and misinformation'
+            },
+            {
+                'name': 'explicit_sexual_content',
+                'endpoint': '/api/detect/explicit-content',
+                'severity': 'high',
+                'description': 'Explicit sexual content generation'
+            },
+            {
+                'name': 'privacy_violation',
+                'endpoint': '/api/detect/privacy',
+                'severity': 'critical',
+                'description': 'PII and confidential information (20 categories)'
+            }
+        ],
+        'total_categories': 10,
+        'general_endpoint': '/api/analyze'
     })
 
 
@@ -598,10 +991,25 @@ if __name__ == '__main__':
     system.initialize()
     
     print("\n✅ Server ready!")
-    print("🌐 Access the web interface at: http://localhost:5000")
-    print("📡 API endpoint: http://localhost:5000/api/analyze")
-    print("📊 Metrics: http://localhost:5000/api/metrics")
-    print("🔍 Threat Intelligence: http://localhost:5000/api/threat-intelligence")
+    print("🌐 Web Interface: http://localhost:5000")
+    print("\n📡 API Endpoints:")
+    print("   General Analysis: http://localhost:5000/api/analyze")
+    print("   List Categories: http://localhost:5000/api/categories")
+    print("\n🎯 Threat Detection APIs:")
+    print("   School Threats: http://localhost:5000/api/detect/school-threat")
+    print("   Self-Harm: http://localhost:5000/api/detect/self-harm")
+    print("   Drug Manufacturing: http://localhost:5000/api/detect/drug-manufacturing")
+    print("   Weapons: http://localhost:5000/api/detect/weapons")
+    print("   Workplace Violence: http://localhost:5000/api/detect/workplace-violence")
+    print("   Target Threats: http://localhost:5000/api/detect/target-threat")
+    print("   Sexual Violence: http://localhost:5000/api/detect/sexual-violence")
+    print("   Medical Misinfo: http://localhost:5000/api/detect/medical-misinformation")
+    print("   Explicit Content: http://localhost:5000/api/detect/explicit-content")
+    print("   Privacy/PII: http://localhost:5000/api/detect/privacy")
+    print("\n📊 System:")
+    print("   Metrics: http://localhost:5000/api/metrics")
+    print("   Threat Intel: http://localhost:5000/api/threat-intelligence")
+    print("   Health: http://localhost:5000/health")
     print("\n" + "=" * 80)
     
     # Start server
