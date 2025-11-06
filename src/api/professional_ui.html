@@ -655,7 +655,7 @@
             analyzeBtn.innerHTML = '<div class="loading-spinner"></div> Analyzing...';
 
             try {
-                const response = await fetch('/analyze', {
+                const response = await fetch('/api/analyze', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -665,8 +665,8 @@
 
                 const result = await response.json();
                 
-                if (result.success && result.analysis) {
-                    displayResults(result.analysis);
+                if (result.success) {
+                    displayResults(result);
                 } else {
                     alert('Analysis failed: ' + (result.error || 'Unknown error'));
                 }
@@ -684,24 +684,27 @@
 
             // Threat badge
             const threatBadge = document.getElementById('threatBadge');
-            const threatLevel = analysis.threat_level || 'benign';
+            const threatLevel = analysis.threat_level || 'safe';
             threatBadge.className = `threat-badge threat-${threatLevel}`;
-            threatBadge.textContent = threatLevel;
+            threatBadge.textContent = threatLevel.toUpperCase();
 
             // Metrics
             document.getElementById('riskScore').textContent = (analysis.overall_risk_score * 100).toFixed(1) + '%';
-            document.getElementById('processingTime').textContent = analysis.processing_time_ms.toFixed(1) + 'ms';
-            document.getElementById('confidence').textContent = analysis.jailbreak_analysis ? 
-                (analysis.jailbreak_analysis.confidence * 100).toFixed(1) + '%' : 'N/A';
+            document.getElementById('processingTime').textContent = (analysis.processing_time_ms || 0).toFixed(1) + 'ms';
+            
+            // Get jailbreak confidence from detections
+            const jbDetection = analysis.detections && analysis.detections.jailbreak;
+            const confidence = jbDetection ? (jbDetection.confidence * 100).toFixed(1) + '%' : 'N/A';
+            document.getElementById('confidence').textContent = confidence;
             document.getElementById('complianceStatus').textContent = analysis.is_compliant ? '✓ Pass' : '✗ Fail';
 
             // Techniques
             const techniquesSection = document.getElementById('techniquesSection');
             const techniquesList = document.getElementById('techniquesList');
             
-            if (analysis.jailbreak_analysis && analysis.jailbreak_analysis.techniques.length > 0) {
+            if (jbDetection && jbDetection.detected && jbDetection.techniques && jbDetection.techniques.length > 0) {
                 techniquesSection.style.display = 'block';
-                techniquesList.innerHTML = analysis.jailbreak_analysis.techniques
+                techniquesList.innerHTML = jbDetection.techniques
                     .map(t => `<span class="technique-tag">${t.replace(/_/g, ' ').toUpperCase()}</span>`)
                     .join('');
             } else {
@@ -709,15 +712,14 @@
             }
 
             // Explanation
-            const explanation = analysis.jailbreak_analysis ? 
-                analysis.jailbreak_analysis.explanation : 
+            const explanation = (jbDetection && jbDetection.explanation) ? 
+                jbDetection.explanation : 
                 'No threats detected. Content appears safe for processing.';
             document.getElementById('explanation').textContent = explanation;
 
             // Recommendation
-            const recommendation = analysis.jailbreak_analysis ? 
-                analysis.jailbreak_analysis.suggested_response : 
-                'Content is compliant and safe to process.';
+            const recommendations = analysis.recommendations || [];
+            const recommendation = recommendations.length > 0 ? recommendations[0] : 'Content is compliant and safe to process.';
             document.getElementById('recommendation').textContent = recommendation;
 
             // Display detailed detection breakdown
@@ -734,9 +736,9 @@
             let html = '';
 
             // Jailbreak Detection
-            if (analysis.jailbreak_analysis) {
-                const jb = analysis.jailbreak_analysis;
-                const isDetected = jb.is_jailbreak;
+            if (analysis.detections && analysis.detections.jailbreak) {
+                const jb = analysis.detections.jailbreak;
+                const isDetected = jb.detected;
                 const severity = jb.severity || 'low';
                 
                 html += `
@@ -761,9 +763,9 @@
                                     ${jb.techniques && jb.techniques.length > 0 ? `
                                         <p><strong>Techniques:</strong> ${jb.techniques.join(', ').toUpperCase()}</p>
                                     ` : ''}
-                                    ${jb.matched_patterns && jb.matched_patterns.length > 0 ? `
+                                    ${jb.patterns && jb.patterns.length > 0 ? `
                                         <p><strong>Key Patterns:</strong></p>
-                                        ${jb.matched_patterns.map(p => `<span class="pattern-chip">${p}</span>`).join('')}
+                                        ${jb.patterns.map(p => `<span class="pattern-chip">${p}</span>`).join('')}
                                     ` : ''}
                                 </div>
                                 <p style="margin-top: 0.5rem;">${jb.explanation}</p>
@@ -816,8 +818,9 @@
             }
 
             // Privacy Violations
-            if (analysis.privacy_violations !== undefined) {
-                const hasViolations = analysis.privacy_violations && analysis.privacy_violations.length > 0;
+            if (analysis.detections && analysis.detections.privacy) {
+                const privacy = analysis.detections.privacy;
+                const hasViolations = privacy.detected && privacy.violations && privacy.violations.length > 0;
                 
                 html += `
                     <div class="detection-category ${hasViolations ? 'detected' : ''}">
@@ -829,14 +832,14 @@
                                 <span>Privacy Detection</span>
                             </div>
                             <span class="detection-badge ${hasViolations ? 'badge-detected' : 'badge-clear'}">
-                                ${hasViolations ? analysis.privacy_violations.length + ' DETECTED' : 'CLEAR'}
+                                ${hasViolations ? privacy.violations.length + ' DETECTED' : 'CLEAR'}
                             </span>
                         </div>
                         <div class="detection-body">
                             ${hasViolations ? `
                                 <ul class="detection-details-list">
-                                    ${analysis.privacy_violations.map(v => `
-                                        <li><strong>${v.type}:</strong> ${v.value} (confidence: ${(v.confidence * 100).toFixed(0)}%)</li>
+                                    ${privacy.violations.map(v => `
+                                        <li><strong>${v.category}:</strong> ${v.masked_value} (${(v.confidence * 100).toFixed(0)}%)</li>
                                     `).join('')}
                                 </ul>
                             ` : `
@@ -847,9 +850,9 @@
                 `;
             }
 
-            // Semantic Toxicity
-            if (analysis.semantic_analysis) {
-                const sem = analysis.semantic_analysis;
+            // Semantic Toxicity (may not always be present)
+            if (analysis.detections && analysis.detections.semantic_analysis) {
+                const sem = analysis.detections.semantic_analysis;
                 const isToxic = sem.is_toxic;
                 
                 html += `
@@ -881,8 +884,8 @@
             }
 
             // OpenAI Moderation
-            if (analysis.openai_moderation) {
-                const mod = analysis.openai_moderation;
+            if (analysis.detections && analysis.detections.openai) {
+                const mod = analysis.detections.openai;
                 const flagged = mod.flagged;
                 
                 html += `
@@ -899,13 +902,10 @@
                             </span>
                         </div>
                         <div class="detection-body">
-                            ${flagged && mod.categories ? `
+                            ${flagged && mod.flagged_categories && mod.flagged_categories.length > 0 ? `
                                 <p><strong>Flagged Categories:</strong></p>
                                 <ul class="detection-details-list">
-                                    ${Object.entries(mod.categories)
-                                        .filter(([_, val]) => val)
-                                        .map(([cat, _]) => `<li>${cat.replace(/\//g, ' / ').toUpperCase()}</li>`)
-                                        .join('')}
+                                    ${mod.flagged_categories.map(cat => `<li>${cat.toUpperCase()}</li>`).join('')}
                                 </ul>
                             ` : `
                                 <p>Content passed OpenAI moderation checks.</p>
@@ -930,13 +930,14 @@
 
         async function updateStats() {
             try {
-                const response = await fetch('/stats');
+                const response = await fetch('/api/metrics');
                 const data = await response.json();
                 
-                document.getElementById('totalRequests').textContent = data.statistics.total_requests;
-                document.getElementById('threatsBlocked').textContent = data.statistics.jailbreak_detected;
-                document.getElementById('safeContent').textContent = data.statistics.safe_content;
-                document.getElementById('uptime').textContent = formatUptime(data.uptime_seconds);
+                document.getElementById('totalRequests').textContent = data.total_processed || 0;
+                document.getElementById('threatsBlocked').textContent = data.jailbreak_attempts || 0;
+                const safeContent = (data.total_processed || 0) - (data.jailbreak_attempts || 0);
+                document.getElementById('safeContent').textContent = safeContent;
+                document.getElementById('uptime').textContent = formatUptime(data.uptime_seconds || 0);
             } catch (error) {
                 console.error('Failed to update stats:', error);
             }

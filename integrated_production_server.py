@@ -539,8 +539,14 @@ HTML_TEMPLATE = '''
 @app.route('/')
 def index():
     """Main interface"""
-    openai_enabled = system.openai_filter and system.openai_filter.enabled if system.openai_filter else False
-    return render_template_string(HTML_TEMPLATE, metrics=system.metrics, openai_enabled=openai_enabled)
+    # Serve the professional UI
+    try:
+        with open('src/api/professional_ui.html', 'r', encoding='utf-8') as f:
+            return f.read()
+    except FileNotFoundError:
+        # Fallback to embedded template if file not found
+        openai_enabled = system.openai_filter and system.openai_filter.enabled if system.openai_filter else False
+        return render_template_string(HTML_TEMPLATE, metrics=system.metrics, openai_enabled=openai_enabled)
 
 
 @app.route('/api/analyze', methods=['POST'])
