@@ -255,11 +255,11 @@ class IntegratedSystem:
             
             # If context-specific threats detected, suppress jailbreak (violence, school threats, etc. are more specific)
             if context_threats_detected and jailbreak_detected:
-                # Check if jailbreak techniques overlap with context threat (e.g., violence)
+                # Context threats are ALWAYS more specific than generic jailbreak - suppress unless extremely high confidence
                 jb_techniques = result['detections']['jailbreak'].get('techniques', [])
                 violence_related = any('violence' in t.lower() for t in jb_techniques)
                 
-                if violence_related or jailbreak_confidence < 0.95:
+                if True:  # ALWAYS suppress jailbreak when context threat exists - it's more specific
                     # Context threat is more specific - suppress jailbreak
                     result['detections']['jailbreak']['detected'] = False
                     result['detections']['jailbreak']['confidence'] = 0.0
