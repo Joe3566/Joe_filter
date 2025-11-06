@@ -44,8 +44,8 @@ except Exception as e:
 
 try:
     from accurate_compliance_filter import HighAccuracyMLFilter
-    ML_FILTER_AVAILABLE = True
-    logger.info("✅ ML compliance filter loaded")
+    ML_FILTER_AVAILABLE = False  # DISABLED: ML filter has false positives
+    logger.info("⚠️ ML compliance filter DISABLED (causes false positives)")
 except Exception as e:
     logger.warning(f"⚠️ ML filter not available: {e}")
     ML_FILTER_AVAILABLE = False
