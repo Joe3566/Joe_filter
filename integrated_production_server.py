@@ -542,9 +542,16 @@ def index():
     # Serve the professional UI
     try:
         with open('src/api/professional_ui.html', 'r', encoding='utf-8') as f:
-            return f.read()
-    except FileNotFoundError:
+            content = f.read()
+            logger.info("✅ Serving professional_ui.html (dynamic UI)")
+            return content
+    except FileNotFoundError as e:
         # Fallback to embedded template if file not found
+        logger.warning(f"⚠️ Could not find professional_ui.html: {e}. Using fallback template.")
+        openai_enabled = system.openai_filter and system.openai_filter.enabled if system.openai_filter else False
+        return render_template_string(HTML_TEMPLATE, metrics=system.metrics, openai_enabled=openai_enabled)
+    except Exception as e:
+        logger.error(f"❌ Error loading professional_ui.html: {e}. Using fallback template.")
         openai_enabled = system.openai_filter and system.openai_filter.enabled if system.openai_filter else False
         return render_template_string(HTML_TEMPLATE, metrics=system.metrics, openai_enabled=openai_enabled)
 
