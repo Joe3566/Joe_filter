@@ -367,11 +367,14 @@ class IntegratedSystem:
         # Calculate processing time
         result['processing_time_ms'] = int((time.time() - start_time) * 1000)
         
-        # Update average response time
-        self.metrics['avg_response_time'] = (
-            (self.metrics['avg_response_time'] * (self.metrics['total_processed'] - 1) +
-             result['processing_time_ms']) / self.metrics['total_processed']
-        )
+        # Update average response time (avoid division by zero)
+        if self.metrics['total_processed'] > 0:
+            self.metrics['avg_response_time'] = (
+                (self.metrics['avg_response_time'] * (self.metrics['total_processed'] - 1) +
+                 result['processing_time_ms']) / self.metrics['total_processed']
+            )
+        else:
+            self.metrics['avg_response_time'] = result['processing_time_ms']
         
         return result
     
