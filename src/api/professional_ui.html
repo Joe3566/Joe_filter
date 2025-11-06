@@ -711,11 +711,9 @@
                 techniquesSection.style.display = 'none';
             }
 
-            // Explanation
-            const explanation = (jbDetection && jbDetection.explanation) ? 
-                jbDetection.explanation : 
-                'No threats detected. Content appears safe for processing.';
-            document.getElementById('explanation').textContent = explanation;
+            // Build dynamic explanation based on all violations
+            const explanation = buildDynamicExplanation(analysis);
+            document.getElementById('explanation').innerHTML = explanation;
 
             // Build dynamic recommendations
             const recommendations = buildDynamicRecommendations(analysis);
@@ -726,6 +724,113 @@
 
             // Update stats after analysis
             updateStats();
+        }
+
+        function buildDynamicExplanation(analysis) {
+            let explanations = [];
+            
+            // If compliant, return positive message
+            if (analysis.is_compliant) {
+                return '✅ <strong>Analysis Complete:</strong> The submitted content has been thoroughly analyzed across multiple detection systems including jailbreak detection, privacy screening, context-specific threat analysis, and semantic toxicity evaluation. No policy violations or security concerns were identified. This content is safe to process.';
+            }
+            
+            // Jailbreak Detection Explanation
+            const jbDetection = analysis.detections && analysis.detections.jailbreak;
+            if (jbDetection && jbDetection.detected) {
+                const severity = jbDetection.severity || 'low';
+                let jbExplanation = `<div style="margin-bottom: 1rem;"><strong>🔒 Jailbreak Attempt Detected:</strong> `;
+                
+                if (severity === 'critical') {
+                    jbExplanation += `Critical severity jailbreak attempt identified with ${(jbDetection.confidence * 100).toFixed(0)}% confidence. `;
+                } else if (severity === 'high') {
+                    jbExplanation += `High-risk jailbreak patterns detected with ${(jbDetection.confidence * 100).toFixed(0)}% confidence. `;
+                } else if (severity === 'moderate') {
+                    jbExplanation += `Moderate jailbreak indicators found with ${(jbDetection.confidence * 100).toFixed(0)}% confidence. `;
+                } else {
+                    jbExplanation += `Low-level jailbreak patterns detected with ${(jbDetection.confidence * 100).toFixed(0)}% confidence. `;
+                }
+                
+                if (jbDetection.explanation) {
+                    jbExplanation += jbDetection.explanation;
+                }
+                jbExplanation += `</div>`;
+                explanations.push(jbExplanation);
+            }
+            
+            // Context-Specific Threats Explanation
+            if (analysis.context_threats && analysis.context_threats.length > 0) {
+                const threats = analysis.context_threats;
+                let threatExplanation = `<div style="margin-bottom: 1rem;"><strong>🚨 Context-Specific Threats:</strong> Detected ${threats.length} specific threat${threats.length > 1 ? 's' : ''}: `;
+                
+                const threatDescriptions = threats.map(t => {
+                    const category = t.category.replace(/_/g, ' ');
+                    return `<strong>${category}</strong> (${t.severity} severity, ${t.indicators} indicator${t.indicators > 1 ? 's' : ''})`;
+                });
+                
+                threatExplanation += threatDescriptions.join(', ') + '. ';
+                threatExplanation += 'These patterns indicate content that may pose safety risks or violate content policies.</div>';
+                explanations.push(threatExplanation);
+            }
+            
+            // Privacy Violations Explanation
+            const privacy = analysis.detections && analysis.detections.privacy;
+            if (privacy && privacy.detected && privacy.violations && privacy.violations.length > 0) {
+                let privacyExplanation = `<div style="margin-bottom: 1rem;"><strong>🔒 Privacy Violations:</strong> `;
+                
+                const piiTypes = [...new Set(privacy.violations.map(v => v.category))];
+                privacyExplanation += `Identified ${privacy.violations.length} piece${privacy.violations.length > 1 ? 's' : ''} of personally identifiable information (PII): ${piiTypes.join(', ')}. `;
+                privacyExplanation += `Privacy risk level: <strong>${privacy.risk_level.toUpperCase()}</strong> with a privacy score of ${(privacy.privacy_score * 100).toFixed(0)}%. `;
+                
+                if (privacy.explanation) {
+                    privacyExplanation += privacy.explanation;
+                } else {
+                    privacyExplanation += 'This sensitive data should be redacted or masked before processing to comply with privacy regulations.';
+                }
+                privacyExplanation += `</div>`;
+                explanations.push(privacyExplanation);
+            }
+            
+            // OpenAI Moderation Explanation
+            const openai = analysis.detections && analysis.detections.openai;
+            if (openai && openai.flagged && openai.flagged_categories && openai.flagged_categories.length > 0) {
+                let openaiExplanation = `<div style="margin-bottom: 1rem;"><strong>🛡️ OpenAI Moderation:</strong> `;
+                openaiExplanation += `Content flagged by OpenAI's industry-standard moderation system for: ${openai.flagged_categories.join(', ')}. `;
+                
+                if (openai.highest_risk_category && openai.highest_risk_score) {
+                    openaiExplanation += `Highest risk category: <strong>${openai.highest_risk_category}</strong> (${(openai.highest_risk_score * 100).toFixed(0)}% confidence).`;
+                }
+                openaiExplanation += `</div>`;
+                explanations.push(openaiExplanation);
+            }
+            
+            // Token Anomalies Explanation
+            const tokenAnomalies = analysis.detections && analysis.detections.token_anomalies;
+            if (tokenAnomalies && tokenAnomalies.detected) {
+                let tokenExplanation = `<div style="margin-bottom: 1rem;"><strong>🔍 Token Anomalies:</strong> `;
+                tokenExplanation += `Detected ${tokenAnomalies.anomalies.length} token anomal${tokenAnomalies.anomalies.length > 1 ? 'ies' : 'y'}. `;
+                tokenExplanation += 'The content contains unusual character patterns, encoding tricks, or obfuscation techniques that may be attempting to bypass content filters.</div>';
+                explanations.push(tokenExplanation);
+            }
+            
+            // Semantic Toxicity Explanation
+            const semantic = analysis.detections && analysis.detections.semantic_analysis;
+            if (semantic && semantic.is_toxic) {
+                let semanticExplanation = `<div style="margin-bottom: 1rem;"><strong>☣️ Semantic Toxicity:</strong> `;
+                semanticExplanation += `Content identified as toxic with ${(semantic.confidence * 100).toFixed(0)}% confidence. `;
+                if (semantic.explanation) {
+                    semanticExplanation += semantic.explanation;
+                }
+                semanticExplanation += `</div>`;
+                explanations.push(semanticExplanation);
+            }
+            
+            // Combined summary
+            if (explanations.length > 0) {
+                return explanations.join('');
+            }
+            
+            // Fallback
+            return '<div>ℹ️ Content flagged for review but specific violation details are not available. Manual review recommended.</div>';
         }
 
         function buildDynamicRecommendations(analysis) {
