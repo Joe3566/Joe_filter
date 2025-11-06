@@ -58,6 +58,14 @@ except Exception as e:
     logger.warning(f"⚠️ OpenAI moderation not available: {e}")
     OPENAI_AVAILABLE = False
 
+try:
+    from enhanced_privacy_detector import EnhancedPrivacyDetector
+    PRIVACY_DETECTOR_AVAILABLE = True
+    logger.info("✅ Enhanced privacy detector loaded")
+except Exception as e:
+    logger.warning(f"⚠️ Privacy detector not available: {e}")
+    PRIVACY_DETECTOR_AVAILABLE = False
+
 
 class IntegratedSystem:
     """Integrated system combining all detection capabilities"""
@@ -66,6 +74,7 @@ class IntegratedSystem:
         self.enhanced_detector = None
         self.ml_filter = None
         self.openai_filter = None
+        self.privacy_detector = None
         self.is_initialized = False
         self.metrics = {
             'total_processed': 0,
@@ -111,6 +120,14 @@ class IntegratedSystem:
                         logger.warning("⚠️ OpenAI API key not set. Set OPENAI_API_KEY for enhanced accuracy.")
                 except Exception as e:
                     logger.error(f"❌ Failed to initialize OpenAI filter: {e}")
+            
+            # Initialize Privacy Detector
+            if PRIVACY_DETECTOR_AVAILABLE:
+                try:
+                    self.privacy_detector = EnhancedPrivacyDetector()
+                    logger.info("✅ Enhanced privacy detector initialized (64+ PII patterns)")
+                except Exception as e:
+                    logger.error(f"❌ Failed to initialize privacy detector: {e}")
             
             self.is_initialized = True
             logger.info("🎉 Integrated system ready!")
@@ -181,7 +198,38 @@ class IntegratedSystem:
                         jailbreak_result.confidence
                     )
             
-            # 2. ML Compliance Filter (if available)
+            # 3. Privacy Violation Detection
+            if self.privacy_detector:
+                try:
+                    privacy_result = self.privacy_detector.detect(text)
+                    result['detections']['privacy'] = {
+                        'detected': privacy_result.has_violations,
+                        'risk_level': privacy_result.risk_level,
+                        'privacy_score': privacy_result.privacy_score,
+                        'violations': [
+                            {
+                                'category': v.category.value,
+                                'severity': v.severity,
+                                'confidence': v.confidence,
+                                'masked_value': v.masked_value
+                            }
+                            for v in privacy_result.violations[:5]  # Limit to first 5
+                        ],
+                        'explanation': privacy_result.explanation
+                    }
+                    
+                    if privacy_result.has_violations:
+                        self.metrics['privacy_violations'] += 1
+                        result['is_compliant'] = False
+                        result['violations'].append('privacy_violation')
+                        result['overall_risk_score'] = max(
+                            result['overall_risk_score'],
+                            privacy_result.privacy_score
+                        )
+                except Exception as e:
+                    logger.error(f"Privacy detector error: {e}")
+            
+            # 4. ML Compliance Filter (if available - DISABLED)
             if self.ml_filter:
                 try:
                     ml_result = self.ml_filter.predict(text)
@@ -225,6 +273,16 @@ class IntegratedSystem:
                     result['recommendations'].append(
                         "BLOCK: Critical jailbreak attempt detected. Do not process this request."
                     )
+                if 'privacy_violation' in result['violations']:
+                    privacy_det = result['detections'].get('privacy', {})
+                    if privacy_det.get('risk_level') in ['critical', 'high']:
+                        result['recommendations'].append(
+                            f"BLOCK: Privacy violation detected. Content contains confidential information ({privacy_det.get('risk_level')} risk)."
+                        )
+                    else:
+                        result['recommendations'].append(
+                            "WARNING: Potential privacy violation detected. Review content before processing."
+                        )
                 if result['detections'].get('token_anomalies', {}).get('detected'):
                     result['recommendations'].append(
                         "WARNING: Token-level obfuscation detected. Potential evasion attempt."
