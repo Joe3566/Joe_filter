@@ -196,7 +196,28 @@ class IntegratedSystem:
                 jailbreak_detected = jailbreak_result.is_jailbreak
                 jailbreak_confidence = jailbreak_result.confidence
             
-            # 3. Privacy Violation Detection
+            # 3. Context-Specific Threat Detection
+            from context_specific_threats import ContextSpecificThreatDetector
+            context_detector = ContextSpecificThreatDetector()
+            context_result = context_detector.detect_all_categories(text)
+            
+            context_threats_detected = []
+            for threat in context_result:
+                if threat.detected:
+                    context_threats_detected.append({
+                        'category': threat.category.value,
+                        'severity': threat.severity,
+                        'confidence': threat.confidence,
+                        'indicators': len(threat.matched_patterns),
+                        'explanation': threat.explanation
+                    })
+                    result['is_compliant'] = False
+                    result['overall_risk_score'] = max(result['overall_risk_score'], threat.confidence)
+            
+            if context_threats_detected:
+                result['context_threats'] = context_threats_detected
+            
+            # 4. Privacy Violation Detection
             privacy_has_violations = False
             if self.privacy_detector:
                 try:
@@ -229,9 +250,29 @@ class IntegratedSystem:
                 except Exception as e:
                     logger.error(f"Privacy detector error: {e}")
             
-            # Smart filtering: If privacy violation detected and jailbreak confidence is low/moderate,
+            # Smart filtering: Suppress jailbreak if more specific threat categories are detected
+            # Priority: Context-Specific Threats > Privacy Violations > Jailbreak
+            
+            # If context-specific threats detected, suppress jailbreak (violence, school threats, etc. are more specific)
+            if context_threats_detected and jailbreak_detected:
+                # Check if jailbreak techniques overlap with context threat (e.g., violence)
+                jb_techniques = result['detections']['jailbreak'].get('techniques', [])
+                violence_related = any('violence' in t.lower() for t in jb_techniques)
+                
+                if violence_related or jailbreak_confidence < 0.95:
+                    # Context threat is more specific - suppress jailbreak
+                    result['detections']['jailbreak']['detected'] = False
+                    result['detections']['jailbreak']['confidence'] = 0.0
+                    result['detections']['jailbreak']['explanation'] = f"Detection reclassified: Content flagged as context-specific threat ({', '.join([t['category'] for t in context_threats_detected])}), not a jailbreak attempt."
+                    if 'jailbreak_attempt' in result['violations']:
+                        result['violations'].remove('jailbreak_attempt')
+                        self.metrics['jailbreak_attempts'] = max(0, self.metrics['jailbreak_attempts'] - 1)
+                    jailbreak_detected = False
+                    logger.info(f"🎯 Reclassified jailbreak as context threat: {', '.join([t['category'] for t in context_threats_detected])}")
+            
+            # If privacy violation detected and jailbreak confidence is low/moderate,
             # suppress jailbreak detection (likely false positive from PII patterns)
-            if privacy_has_violations and jailbreak_detected:
+            elif privacy_has_violations and jailbreak_detected:
                 if jailbreak_confidence < 0.85:  # Below high confidence threshold
                     # Check if jailbreak techniques are only encoding-related or if there are very few techniques
                     techniques = result['detections']['jailbreak'].get('techniques', [])
