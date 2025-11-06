@@ -365,6 +365,146 @@
             margin-top: 1rem;
             font-weight: 600;
         }
+
+        .detection-details {
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 2px solid var(--light-gray);
+        }
+
+        .detection-category {
+            background: white;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .detection-category:hover {
+            border-color: var(--primary);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1);
+        }
+
+        .detection-category.detected {
+            border-color: var(--danger);
+            background: #fef2f2;
+        }
+
+        .detection-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+        }
+
+        .detection-title {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 700;
+            color: var(--dark);
+        }
+
+        .detection-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .detection-icon.safe {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .detection-icon.threat {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .detection-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-detected {
+            background: #fecaca;
+            color: #991b1b;
+        }
+
+        .badge-clear {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .detection-body {
+            font-size: 0.875rem;
+            color: var(--gray);
+            line-height: 1.6;
+        }
+
+        .detection-details-list {
+            margin-top: 0.5rem;
+            padding-left: 1.25rem;
+        }
+
+        .detection-details-list li {
+            margin-bottom: 0.25rem;
+            color: var(--dark);
+        }
+
+        .confidence-bar {
+            margin-top: 0.5rem;
+            height: 8px;
+            background: var(--light-gray);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981 0%, #f59e0b 50%, #ef4444 100%);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        .jailbreak-section {
+            background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 100%);
+            border-left: 4px solid #f59e0b;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+
+        .jailbreak-section.critical {
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            border-left-color: #ef4444;
+        }
+
+        .jailbreak-section h4 {
+            margin: 0 0 0.75rem 0;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .pattern-chip {
+            display: inline-block;
+            background: rgba(0, 0, 0, 0.1);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            margin: 0.25rem;
+            font-size: 0.75rem;
+            font-family: monospace;
+        }
     </style>
 </head>
 <body>
@@ -451,6 +591,11 @@
 
                     <div id="recommendationSection" class="action-recommendation">
                         <strong>Recommended Action:</strong> <span id="recommendation"></span>
+                    </div>
+
+                    <div id="detectionDetailsSection" class="detection-details" style="display: none;">
+                        <h3>Detection Breakdown</h3>
+                        <div id="detectionCategories"></div>
                     </div>
                 </div>
             </div>
@@ -575,8 +720,207 @@
                 'Content is compliant and safe to process.';
             document.getElementById('recommendation').textContent = recommendation;
 
+            // Display detailed detection breakdown
+            displayDetectionBreakdown(analysis);
+
             // Update stats after analysis
             updateStats();
+        }
+
+        function displayDetectionBreakdown(analysis) {
+            const detectionSection = document.getElementById('detectionDetailsSection');
+            const categoriesContainer = document.getElementById('detectionCategories');
+            
+            let html = '';
+
+            // Jailbreak Detection
+            if (analysis.jailbreak_analysis) {
+                const jb = analysis.jailbreak_analysis;
+                const isDetected = jb.is_jailbreak;
+                const severity = jb.severity || 'low';
+                
+                html += `
+                    <div class="detection-category ${isDetected ? 'detected' : ''}">
+                        <div class="detection-header">
+                            <div class="detection-title">
+                                <div class="detection-icon ${isDetected ? 'threat' : 'safe'}">
+                                    ${isDetected ? '⚠️' : '✓'}
+                                </div>
+                                <span>Jailbreak Detection</span>
+                            </div>
+                            <span class="detection-badge ${isDetected ? 'badge-detected' : 'badge-clear'}">
+                                ${isDetected ? 'DETECTED' : 'CLEAR'}
+                            </span>
+                        </div>
+                        <div class="detection-body">
+                            ${isDetected ? `
+                                <div class="jailbreak-section ${severity === 'critical' ? 'critical' : ''}">
+                                    <h4>☠️ Jailbreak Detected</h4>
+                                    <p><strong>Severity:</strong> ${severity.toUpperCase()}</p>
+                                    <p><strong>Confidence:</strong> ${(jb.confidence * 100).toFixed(1)}%</p>
+                                    ${jb.techniques && jb.techniques.length > 0 ? `
+                                        <p><strong>Techniques:</strong> ${jb.techniques.join(', ').toUpperCase()}</p>
+                                    ` : ''}
+                                    ${jb.matched_patterns && jb.matched_patterns.length > 0 ? `
+                                        <p><strong>Key Patterns:</strong></p>
+                                        ${jb.matched_patterns.map(p => `<span class="pattern-chip">${p}</span>`).join('')}
+                                    ` : ''}
+                                </div>
+                                <p style="margin-top: 0.5rem;">${jb.explanation}</p>
+                            ` : `
+                                <p>No jailbreak attempts detected. Content appears to be a legitimate request.</p>
+                            `}
+                            <div class="confidence-bar">
+                                <div class="confidence-fill" style="width: ${(jb.confidence * 100).toFixed(1)}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Context-Specific Threats
+            if (analysis.context_threats) {
+                const threats = analysis.context_threats;
+                const hasThreats = threats && threats.length > 0;
+                
+                html += `
+                    <div class="detection-category ${hasThreats ? 'detected' : ''}">
+                        <div class="detection-header">
+                            <div class="detection-title">
+                                <div class="detection-icon ${hasThreats ? 'threat' : 'safe'}">
+                                    ${hasThreats ? '🚨' : '✓'}
+                                </div>
+                                <span>Context-Specific Threats</span>
+                            </div>
+                            <span class="detection-badge ${hasThreats ? 'badge-detected' : 'badge-clear'}">
+                                ${hasThreats ? threats.length + ' DETECTED' : 'CLEAR'}
+                            </span>
+                        </div>
+                        <div class="detection-body">
+                            ${hasThreats ? `
+                                <ul class="detection-details-list">
+                                    ${threats.map(t => `
+                                        <li>
+                                            <strong>${t.category.replace(/_/g, ' ').toUpperCase()}:</strong> 
+                                            ${t.severity} severity 
+                                            (${t.indicators} indicator${t.indicators > 1 ? 's' : ''})
+                                        </li>
+                                    `).join('')}
+                                </ul>
+                            ` : `
+                                <p>No specific threats detected across all monitored categories.</p>
+                            `}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Privacy Violations
+            if (analysis.privacy_violations !== undefined) {
+                const hasViolations = analysis.privacy_violations && analysis.privacy_violations.length > 0;
+                
+                html += `
+                    <div class="detection-category ${hasViolations ? 'detected' : ''}">
+                        <div class="detection-header">
+                            <div class="detection-title">
+                                <div class="detection-icon ${hasViolations ? 'threat' : 'safe'}">
+                                    ${hasViolations ? '🔒' : '✓'}
+                                </div>
+                                <span>Privacy Detection</span>
+                            </div>
+                            <span class="detection-badge ${hasViolations ? 'badge-detected' : 'badge-clear'}">
+                                ${hasViolations ? analysis.privacy_violations.length + ' DETECTED' : 'CLEAR'}
+                            </span>
+                        </div>
+                        <div class="detection-body">
+                            ${hasViolations ? `
+                                <ul class="detection-details-list">
+                                    ${analysis.privacy_violations.map(v => `
+                                        <li><strong>${v.type}:</strong> ${v.value} (confidence: ${(v.confidence * 100).toFixed(0)}%)</li>
+                                    `).join('')}
+                                </ul>
+                            ` : `
+                                <p>No privacy violations detected. No personal identifiable information found.</p>
+                            `}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Semantic Toxicity
+            if (analysis.semantic_analysis) {
+                const sem = analysis.semantic_analysis;
+                const isToxic = sem.is_toxic;
+                
+                html += `
+                    <div class="detection-category ${isToxic ? 'detected' : ''}">
+                        <div class="detection-header">
+                            <div class="detection-title">
+                                <div class="detection-icon ${isToxic ? 'threat' : 'safe'}">
+                                    ${isToxic ? '☣️' : '✓'}
+                                </div>
+                                <span>Semantic Toxicity</span>
+                            </div>
+                            <span class="detection-badge ${isToxic ? 'badge-detected' : 'badge-clear'}">
+                                ${isToxic ? 'TOXIC' : 'CLEAN'}
+                            </span>
+                        </div>
+                        <div class="detection-body">
+                            ${isToxic ? `
+                                <p><strong>Confidence:</strong> ${(sem.confidence * 100).toFixed(1)}%</p>
+                                <p>${sem.explanation}</p>
+                            ` : `
+                                <p>Content is semantically appropriate and non-toxic.</p>
+                            `}
+                            <div class="confidence-bar">
+                                <div class="confidence-fill" style="width: ${(sem.confidence * 100).toFixed(1)}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // OpenAI Moderation
+            if (analysis.openai_moderation) {
+                const mod = analysis.openai_moderation;
+                const flagged = mod.flagged;
+                
+                html += `
+                    <div class="detection-category ${flagged ? 'detected' : ''}">
+                        <div class="detection-header">
+                            <div class="detection-title">
+                                <div class="detection-icon ${flagged ? 'threat' : 'safe'}">
+                                    ${flagged ? '🛡️' : '✓'}
+                                </div>
+                                <span>OpenAI Moderation</span>
+                            </div>
+                            <span class="detection-badge ${flagged ? 'badge-detected' : 'badge-clear'}">
+                                ${flagged ? 'FLAGGED' : 'CLEAR'}
+                            </span>
+                        </div>
+                        <div class="detection-body">
+                            ${flagged && mod.categories ? `
+                                <p><strong>Flagged Categories:</strong></p>
+                                <ul class="detection-details-list">
+                                    ${Object.entries(mod.categories)
+                                        .filter(([_, val]) => val)
+                                        .map(([cat, _]) => `<li>${cat.replace(/\//g, ' / ').toUpperCase()}</li>`)
+                                        .join('')}
+                                </ul>
+                            ` : `
+                                <p>Content passed OpenAI moderation checks.</p>
+                            `}
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (html) {
+                categoriesContainer.innerHTML = html;
+                detectionSection.style.display = 'block';
+            } else {
+                detectionSection.style.display = 'none';
+            }
         }
 
         function clearForm() {
