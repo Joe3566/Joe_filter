@@ -824,39 +824,58 @@
                 const isDetected = jb.detected;
                 const severity = jb.severity || 'low';
                 
+                // Dynamic colors and icons based on severity
+                const severityConfig = {
+                    'critical': { icon: '☠️', color: '#dc2626', bgGradient: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)', borderColor: '#ef4444' },
+                    'high': { icon: '🚨', color: '#ea580c', bgGradient: 'linear-gradient(135deg, #fed7aa 0%, #fdba74 100%)', borderColor: '#f97316' },
+                    'moderate': { icon: '⚠️', color: '#d97706', bgGradient: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)', borderColor: '#f59e0b' },
+                    'low': { icon: '💡', color: '#0891b2', bgGradient: 'linear-gradient(135deg, #cffafe 0%, #a5f3fc 100%)', borderColor: '#06b6d4' }
+                };
+                const config = severityConfig[severity] || severityConfig['low'];
+                
                 html += `
-                    <div class="detection-category ${isDetected ? 'detected' : ''}">
+                    <div class="detection-category ${isDetected ? 'detected' : ''}" style="${isDetected ? `border-color: ${config.borderColor};` : ''}">
                         <div class="detection-header">
                             <div class="detection-title">
                                 <div class="detection-icon ${isDetected ? 'threat' : 'safe'}">
-                                    ${isDetected ? '⚠️' : '✓'}
+                                    ${isDetected ? config.icon : '✓'}
                                 </div>
                                 <span>Jailbreak Detection</span>
                             </div>
-                            <span class="detection-badge ${isDetected ? 'badge-detected' : 'badge-clear'}">
-                                ${isDetected ? 'DETECTED' : 'CLEAR'}
+                            <span class="detection-badge ${isDetected ? 'badge-detected' : 'badge-clear'}" style="${isDetected ? `background: ${config.color}15; color: ${config.color};` : ''}">
+                                ${isDetected ? severity.toUpperCase() + ' RISK' : 'CLEAR'}
                             </span>
                         </div>
                         <div class="detection-body">
                             ${isDetected ? `
-                                <div class="jailbreak-section ${severity === 'critical' ? 'critical' : ''}">
-                                    <h4>☠️ Jailbreak Detected</h4>
-                                    <p><strong>Severity:</strong> ${severity.toUpperCase()}</p>
+                                <div style="background: ${config.bgGradient}; border-left: 4px solid ${config.borderColor}; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
+                                    <h4 style="margin: 0 0 0.75rem 0; font-size: 1rem; display: flex; align-items: center; gap: 0.5rem; color: ${config.color};">
+                                        ${config.icon} Jailbreak Detected - ${severity.toUpperCase()} Severity
+                                    </h4>
                                     <p><strong>Confidence:</strong> ${(jb.confidence * 100).toFixed(1)}%</p>
                                     ${jb.techniques && jb.techniques.length > 0 ? `
-                                        <p><strong>Techniques:</strong> ${jb.techniques.join(', ').toUpperCase()}</p>
+                                        <p><strong>Techniques Used:</strong></p>
+                                        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem;">
+                                            ${jb.techniques.map(t => `
+                                                <span style="background: rgba(0,0,0,0.1); padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">
+                                                    ${t.replace(/_/g, ' ').toUpperCase()}
+                                                </span>
+                                            `).join('')}
+                                        </div>
                                     ` : ''}
                                     ${jb.patterns && jb.patterns.length > 0 ? `
-                                        <p><strong>Key Patterns:</strong></p>
-                                        ${jb.patterns.map(p => `<span class="pattern-chip">${p}</span>`).join('')}
+                                        <p style="margin-top: 0.75rem;"><strong>Matched Patterns:</strong></p>
+                                        <div style="margin-top: 0.5rem;">
+                                            ${jb.patterns.map(p => `<span class="pattern-chip">${p}</span>`).join('')}
+                                        </div>
                                     ` : ''}
                                 </div>
-                                <p style="margin-top: 0.5rem;">${jb.explanation}</p>
+                                <p style="margin-top: 0.5rem; font-size: 0.875rem; line-height: 1.6;">${jb.explanation}</p>
                             ` : `
-                                <p>No jailbreak attempts detected. Content appears to be a legitimate request.</p>
+                                <p>✅ No jailbreak attempts detected. Content appears to be a legitimate request.</p>
                             `}
                             <div class="confidence-bar">
-                                <div class="confidence-fill" style="width: ${(jb.confidence * 100).toFixed(1)}%"></div>
+                                <div class="confidence-fill" style="width: ${(jb.confidence * 100).toFixed(1)}%; background: ${isDetected ? config.color : '#10b981'};"></div>
                             </div>
                         </div>
                     </div>
@@ -868,8 +887,22 @@
                 const threats = analysis.context_threats;
                 const hasThreats = threats && threats.length > 0;
                 
+                // Determine highest severity
+                let highestSeverity = 'low';
+                let borderColor = '#e5e7eb';
+                if (hasThreats) {
+                    const severityLevels = { 'critical': 4, 'high': 3, 'moderate': 2, 'low': 1 };
+                    threats.forEach(t => {
+                        if (severityLevels[t.severity] > severityLevels[highestSeverity]) {
+                            highestSeverity = t.severity;
+                        }
+                    });
+                    const severityColors = { 'critical': '#dc2626', 'high': '#ea580c', 'moderate': '#f59e0b', 'low': '#06b6d4' };
+                    borderColor = severityColors[highestSeverity];
+                }
+                
                 html += `
-                    <div class="detection-category ${hasThreats ? 'detected' : ''}">
+                    <div class="detection-category ${hasThreats ? 'detected' : ''}" style="${hasThreats ? `border-color: ${borderColor};` : ''}">
                         <div class="detection-header">
                             <div class="detection-title">
                                 <div class="detection-icon ${hasThreats ? 'threat' : 'safe'}">
@@ -877,23 +910,34 @@
                                 </div>
                                 <span>Context-Specific Threats</span>
                             </div>
-                            <span class="detection-badge ${hasThreats ? 'badge-detected' : 'badge-clear'}">
-                                ${hasThreats ? threats.length + ' DETECTED' : 'CLEAR'}
+                            <span class="detection-badge ${hasThreats ? 'badge-detected' : 'badge-clear'}" style="${hasThreats ? `background: ${borderColor}15; color: ${borderColor};` : ''}">
+                                ${hasThreats ? threats.length + ' THREAT' + (threats.length > 1 ? 'S' : '') : 'CLEAR'}
                             </span>
                         </div>
                         <div class="detection-body">
                             ${hasThreats ? `
-                                <ul class="detection-details-list">
-                                    ${threats.map(t => `
-                                        <li>
-                                            <strong>${t.category.replace(/_/g, ' ').toUpperCase()}:</strong> 
-                                            ${t.severity} severity 
-                                            (${t.indicators} indicator${t.indicators > 1 ? 's' : ''})
-                                        </li>
-                                    `).join('')}
-                                </ul>
+                                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                                    ${threats.map(t => {
+                                        const sevColors = { 'critical': '#dc2626', 'high': '#ea580c', 'moderate': '#f59e0b', 'low': '#06b6d4' };
+                                        const sevIcons = { 'critical': '☠️', 'high': '🔥', 'moderate': '⚠️', 'low': '💡' };
+                                        const color = sevColors[t.severity] || '#6b7280';
+                                        const icon = sevIcons[t.severity] || 'ℹ️';
+                                        return `
+                                            <div style="background: ${color}08; border-left: 3px solid ${color}; padding: 0.75rem; border-radius: 6px;">
+                                                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+                                                    <span style="font-size: 1.1rem;">${icon}</span>
+                                                    <strong style="color: ${color};">${t.category.replace(/_/g, ' ').toUpperCase()}</strong>
+                                                </div>
+                                                <p style="margin: 0; font-size: 0.875rem; color: #4b5563;">
+                                                    <strong>Severity:</strong> ${t.severity.toUpperCase()} | 
+                                                    <strong>Indicators:</strong> ${t.indicators}
+                                                </p>
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
                             ` : `
-                                <p>No specific threats detected across all monitored categories.</p>
+                                <p>✅ No specific threats detected across all monitored categories.</p>
                             `}
                         </div>
                     </div>
@@ -905,28 +949,66 @@
                 const privacy = analysis.detections.privacy;
                 const hasViolations = privacy.detected && privacy.violations && privacy.violations.length > 0;
                 
+                // Dynamic styling based on risk level
+                const riskLevel = privacy.risk_level || 'low';
+                const riskConfig = {
+                    'critical': { color: '#dc2626', icon: '🚫', bg: '#fee2e2' },
+                    'high': { color: '#ea580c', icon: '🔒', bg: '#fed7aa' },
+                    'medium': { color: '#f59e0b', icon: '⚠️', bg: '#fef3c7' },
+                    'low': { color: '#06b6d4', icon: '🛈', bg: '#cffafe' }
+                };
+                const config = riskConfig[riskLevel] || riskConfig['low'];
+                
                 html += `
-                    <div class="detection-category ${hasViolations ? 'detected' : ''}">
+                    <div class="detection-category ${hasViolations ? 'detected' : ''}" style="${hasViolations ? `border-color: ${config.color};` : ''}">
                         <div class="detection-header">
                             <div class="detection-title">
                                 <div class="detection-icon ${hasViolations ? 'threat' : 'safe'}">
-                                    ${hasViolations ? '🔒' : '✓'}
+                                    ${hasViolations ? config.icon : '✓'}
                                 </div>
                                 <span>Privacy Detection</span>
                             </div>
-                            <span class="detection-badge ${hasViolations ? 'badge-detected' : 'badge-clear'}">
-                                ${hasViolations ? privacy.violations.length + ' DETECTED' : 'CLEAR'}
+                            <span class="detection-badge ${hasViolations ? 'badge-detected' : 'badge-clear'}" style="${hasViolations ? `background: ${config.color}15; color: ${config.color};` : ''}">
+                                ${hasViolations ? privacy.violations.length + ' PII' : 'CLEAR'}
                             </span>
                         </div>
                         <div class="detection-body">
                             ${hasViolations ? `
-                                <ul class="detection-details-list">
-                                    ${privacy.violations.map(v => `
-                                        <li><strong>${v.category}:</strong> ${v.masked_value} (${(v.confidence * 100).toFixed(0)}%)</li>
-                                    `).join('')}
-                                </ul>
+                                <div style="background: ${config.bg}; padding: 1rem; border-radius: 8px; border-left: 3px solid ${config.color}; margin-bottom: 0.75rem;">
+                                    <p style="margin: 0 0 0.5rem 0;"><strong style="color: ${config.color};">Risk Level:</strong> ${riskLevel.toUpperCase()}</p>
+                                    <p style="margin: 0;"><strong>Privacy Score:</strong> ${(privacy.privacy_score * 100).toFixed(1)}%</p>
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                                    ${privacy.violations.map(v => {
+                                        const categoryIcons = {
+                                            'EMAIL': '📧',
+                                            'PHONE': '📞',
+                                            'SSN': '🆔',
+                                            'CREDIT_CARD': '💳',
+                                            'ADDRESS': '🏠',
+                                            'NAME': '👤',
+                                            'IP_ADDRESS': '🌐',
+                                            'DATE_OF_BIRTH': '🎂'
+                                        };
+                                        const icon = categoryIcons[v.category] || '🔒';
+                                        const confidence = (v.confidence * 100).toFixed(0);
+                                        const confColor = confidence > 80 ? '#dc2626' : confidence > 60 ? '#f59e0b' : '#06b6d4';
+                                        return `
+                                            <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.5rem; background: white; border-radius: 6px; border: 1px solid #e5e7eb;">
+                                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                                    <span style="font-size: 1.1rem;">${icon}</span>
+                                                    <strong>${v.category.replace(/_/g, ' ')}:</strong>
+                                                    <code style="background: #f3f4f6; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.875rem;">${v.masked_value}</code>
+                                                </div>
+                                                <span style="background: ${confColor}15; color: ${confColor}; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">
+                                                    ${confidence}%
+                                                </span>
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
                             ` : `
-                                <p>No privacy violations detected. No personal identifiable information found.</p>
+                                <p>✅ No privacy violations detected. No personal identifiable information found.</p>
                             `}
                         </div>
                     </div>
