@@ -849,13 +849,21 @@ class AdvancedJailbreakDetector:
         
         # Check for excessive repetition (repetition attack)
         words = text.lower().split()
-        if len(words) > 0:
+        if len(words) > 10:  # Only check if there are enough words
             word_freq = Counter(words)
-            max_repetition = max(word_freq.values())
-            if max_repetition > len(words) * 0.3:  # If any word appears >30% of the time
-                score = max(score, 0.6)
-                techniques.append(JailbreakTechnique.REPETITION_ATTACK)
-                patterns.append("Repetition attack detected")
+            # Exclude common words (the, is, a, etc.)
+            common_words = {'the', 'is', 'a', 'an', 'of', 'to', 'in', 'for', 'on', 'with', 'as', 'by', 'at', 'from', 'this', 'that', 'it', 'be', 'are', 'was', 'were', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'what', 'how', 'why', 'when', 'where', 'who', 'which', 'i', 'you', 'he', 'she', 'we', 'they', 'me', 'him', 'her', 'us', 'them'}
+            
+            # Filter out common words before counting
+            filtered_words = {word: count for word, count in word_freq.items() if word not in common_words}
+            
+            if filtered_words:
+                max_repetition = max(filtered_words.values())
+                # Increase threshold to 50% and require at least 5 repetitions
+                if max_repetition >= 5 and max_repetition > len(words) * 0.5:
+                    score = max(score, 0.6)
+                    techniques.append(JailbreakTechnique.REPETITION_ATTACK)
+                    patterns.append("Repetition attack detected")
         
         # Check for system prompt leak attempts
         system_indicators = ["system:", "human:", "assistant:", "[INST]", "</INST>"]
