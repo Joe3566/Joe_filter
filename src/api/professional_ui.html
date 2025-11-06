@@ -923,10 +923,10 @@
             
             let html = '';
 
-            // Jailbreak Detection
-            if (analysis.detections && analysis.detections.jailbreak) {
-                const jb = analysis.detections.jailbreak;
-                const isDetected = jb.detected;
+            // Jailbreak Detection - ALWAYS SHOW
+            const jb = (analysis.detections && analysis.detections.jailbreak) || { detected: false, confidence: 0 };
+            {
+                const isDetected = jb.detected || false;
                 const severity = jb.severity || 'low';
                 
                 // Dynamic colors and icons based on severity
@@ -987,10 +987,10 @@
                 `;
             }
 
-            // Context-Specific Threats
-            if (analysis.context_threats) {
-                const threats = analysis.context_threats;
-                const hasThreats = threats && threats.length > 0;
+            // Context-Specific Threats - ALWAYS SHOW
+            {
+                const threats = analysis.context_threats || [];
+                const hasThreats = threats.length > 0;
                 
                 // Determine highest severity
                 let highestSeverity = 'low';
@@ -1049,9 +1049,9 @@
                 `;
             }
 
-            // Privacy Violations
-            if (analysis.detections && analysis.detections.privacy) {
-                const privacy = analysis.detections.privacy;
+            // Privacy Violations - ALWAYS SHOW
+            {
+                const privacy = (analysis.detections && analysis.detections.privacy) || { detected: false, violations: [], risk_level: 'low', privacy_score: 0 };
                 const hasViolations = privacy.detected && privacy.violations && privacy.violations.length > 0;
                 
                 // Dynamic styling based on risk level
@@ -1120,9 +1120,9 @@
                 `;
             }
 
-            // Semantic Toxicity (may not always be present)
-            if (analysis.detections && analysis.detections.semantic_analysis) {
-                const sem = analysis.detections.semantic_analysis;
+            // Semantic Toxicity - ALWAYS SHOW
+            {
+                const sem = (analysis.detections && analysis.detections.semantic_analysis) || { is_toxic: false, confidence: 0 };
                 const isToxic = sem.is_toxic;
                 
                 html += `
@@ -1153,9 +1153,46 @@
                 `;
             }
 
-            // OpenAI Moderation
-            if (analysis.detections && analysis.detections.openai) {
-                const mod = analysis.detections.openai;
+            // Token Anomalies - ALWAYS SHOW
+            {
+                const tokenAnomalies = (analysis.detections && analysis.detections.token_anomalies) || { detected: false, anomalies: [], score: 0 };
+                const hasAnomalies = tokenAnomalies.detected;
+                
+                html += `
+                    <div class="detection-category ${hasAnomalies ? 'detected' : ''}" style="${hasAnomalies ? 'border-color: #f59e0b;' : ''}">
+                        <div class="detection-header">
+                            <div class="detection-title">
+                                <div class="detection-icon ${hasAnomalies ? 'threat' : 'safe'}">
+                                    ${hasAnomalies ? '🔍' : '✓'}
+                                </div>
+                                <span>Token Anomalies</span>
+                            </div>
+                            <span class="detection-badge ${hasAnomalies ? 'badge-detected' : 'badge-clear'}" style="${hasAnomalies ? 'background: #f59e0b15; color: #f59e0b;' : ''}">
+                                ${hasAnomalies ? tokenAnomalies.anomalies.length + ' FOUND' : 'CLEAR'}
+                            </span>
+                        </div>
+                        <div class="detection-body">
+                            ${hasAnomalies ? `
+                                <p><strong>Anomaly Score:</strong> ${(tokenAnomalies.score * 100).toFixed(1)}%</p>
+                                <p>Detected unusual patterns, encoding tricks, or obfuscation techniques that may be attempting to bypass content filters.</p>
+                                ${tokenAnomalies.anomalies && tokenAnomalies.anomalies.length > 0 ? `
+                                    <div style="margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.25rem;">
+                                        ${tokenAnomalies.anomalies.slice(0, 5).map(a => `
+                                            <span style="background: #fef3c7; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-family: monospace;">${a.type || 'anomaly'}</span>
+                                        `).join('')}
+                                    </div>
+                                ` : ''}
+                            ` : `
+                                <p>✅ No token anomalies detected. Content uses standard encoding.</p>
+                            `}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // OpenAI Moderation - ALWAYS SHOW
+            {
+                const mod = (analysis.detections && analysis.detections.openai) || { flagged: false, flagged_categories: [] };
                 const flagged = mod.flagged;
                 
                 html += `
