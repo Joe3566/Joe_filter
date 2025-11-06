@@ -188,17 +188,12 @@ class IntegratedSystem:
                     }
                     self.metrics['token_anomalies'] += 1
                 
-                # Update metrics
-                if jailbreak_result.is_jailbreak:
-                    self.metrics['jailbreak_attempts'] += 1
-                    result['violations'].append('jailbreak_attempt')
-                    result['is_compliant'] = False
-                    result['overall_risk_score'] = max(
-                        result['overall_risk_score'], 
-                        jailbreak_result.confidence
-                    )
+                # Update metrics - store for later smart filtering
+                jailbreak_detected = jailbreak_result.is_jailbreak
+                jailbreak_confidence = jailbreak_result.confidence
             
             # 3. Privacy Violation Detection
+            privacy_has_violations = False
             if self.privacy_detector:
                 try:
                     privacy_result = self.privacy_detector.detect(text)
@@ -219,6 +214,7 @@ class IntegratedSystem:
                     }
                     
                     if privacy_result.has_violations:
+                        privacy_has_violations = True
                         self.metrics['privacy_violations'] += 1
                         result['is_compliant'] = False
                         result['violations'].append('privacy_violation')
@@ -228,6 +224,34 @@ class IntegratedSystem:
                         )
                 except Exception as e:
                     logger.error(f"Privacy detector error: {e}")
+            
+            # Smart filtering: If privacy violation detected and jailbreak confidence is low/moderate,
+            # suppress jailbreak detection (likely false positive from PII patterns)
+            if privacy_has_violations and jailbreak_detected:
+                if jailbreak_confidence < 0.75:  # Below high confidence threshold
+                    # Check if jailbreak techniques are only encoding-related
+                    techniques = result['detections']['jailbreak'].get('techniques', [])
+                    encoding_only = all('encoding' in t.lower() or 'obfuscation' in t.lower() for t in techniques)
+                    
+                    if encoding_only:
+                        # This is likely PII being flagged as obfuscation - suppress jailbreak
+                        result['detections']['jailbreak']['detected'] = False
+                        result['detections']['jailbreak']['explanation'] = 'Jailbreak patterns suppressed: Low confidence detection overlapping with privacy violation (likely PII misidentification).'
+                        if 'jailbreak_attempt' in result['violations']:
+                            result['violations'].remove('jailbreak_attempt')
+                            self.metrics['jailbreak_attempts'] -= 1
+                        logger.info("🔍 Suppressed low-confidence jailbreak detection (privacy violation detected)")
+            
+            # Add jailbreak to violations if still detected after filtering
+            if result['detections'].get('jailbreak', {}).get('detected'):
+                if 'jailbreak_attempt' not in result['violations']:
+                    self.metrics['jailbreak_attempts'] += 1
+                    result['violations'].append('jailbreak_attempt')
+                    result['is_compliant'] = False
+                    result['overall_risk_score'] = max(
+                        result['overall_risk_score'], 
+                        jailbreak_confidence
+                    )
             
             # 4. ML Compliance Filter (if available - DISABLED)
             if self.ml_filter:
