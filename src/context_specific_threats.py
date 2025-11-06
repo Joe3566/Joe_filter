@@ -361,7 +361,7 @@ class ContextSpecificThreatDetector:
             text: Text to analyze
             
         Returns:
-            ContextThreatResult with detection details
+            ContextThreatResult with detection details (first match only)
         """
         if not text or len(text.strip()) < 5:
             return ContextThreatResult(detected=False)
@@ -394,6 +394,49 @@ class ContextSpecificThreatDetector:
                 )
         
         return ContextThreatResult(detected=False)
+    
+    def detect_all_categories(self, text: str) -> List[ContextThreatResult]:
+        """
+        Detect ALL context-specific threats in text (checks all categories)
+        
+        Args:
+            text: Text to analyze
+            
+        Returns:
+            List of ContextThreatResult for all detected categories
+        """
+        if not text or len(text.strip()) < 5:
+            return []
+        
+        text_lower = text.lower()
+        results = []
+        
+        # Check ALL categories
+        for category, config in self.patterns.items():
+            patterns = config['patterns']
+            severity = config['severity']
+            matched = []
+            
+            for pattern in patterns:
+                if re.search(pattern, text_lower, re.IGNORECASE):
+                    matched.append(pattern)
+            
+            if matched:
+                # Calculate confidence based on number of matches
+                confidence = min(0.95, 0.70 + (len(matched) * 0.05))
+                
+                explanation = self._generate_explanation(category, len(matched))
+                
+                results.append(ContextThreatResult(
+                    detected=True,
+                    category=category,
+                    severity=severity,
+                    matched_patterns=matched[:5],  # Limit to first 5
+                    confidence=confidence,
+                    explanation=explanation
+                ))
+        
+        return results
     
     def _generate_explanation(self, category: ThreatCategory, match_count: int) -> str:
         """Generate human-readable explanation for detection"""
