@@ -270,35 +270,19 @@ class IntegratedSystem:
                     jailbreak_detected = False
                     logger.info(f"🎯 Reclassified jailbreak as context threat: {', '.join([t['category'] for t in context_threats_detected])}")
             
-            # If privacy violation detected and jailbreak confidence is low/moderate,
-            # suppress jailbreak detection (likely false positive from PII patterns)
-            elif privacy_has_violations and jailbreak_detected:
-                if jailbreak_confidence < 0.85:  # Below high confidence threshold
-                    # Check if jailbreak techniques are only encoding-related or if there are very few techniques
-                    techniques = result['detections']['jailbreak'].get('techniques', [])
-                    
-                    # Check if encoding/obfuscation is the dominant technique
-                    if techniques:
-                        encoding_count = sum(1 for t in techniques if 'encoding' in t.lower() or 'obfuscation' in t.lower())
-                        encoding_dominant = encoding_count > 0 and encoding_count >= len(techniques) / 2
-                    else:
-                        encoding_dominant = False
-                    
-                    # Also suppress if patterns look like PII (emails, numbers, etc.)
-                    patterns = result['detections']['jailbreak'].get('patterns', [])
-                    pii_like_patterns = any('@' in str(p) or any(c.isdigit() for c in str(p)) for p in patterns)
-                    
-                    if encoding_dominant or pii_like_patterns or not techniques:
-                        # This is likely PII being flagged as obfuscation - suppress jailbreak
-                        result['detections']['jailbreak']['detected'] = False
-                        result['detections']['jailbreak']['severity'] = 'low'
-                        result['detections']['jailbreak']['confidence'] = 0.0
-                        result['detections']['jailbreak']['explanation'] = 'Detection suppressed: Privacy violation detected. Jailbreak patterns likely PII-related false positive.'
-                        if 'jailbreak_attempt' in result['violations']:
-                            result['violations'].remove('jailbreak_attempt')
-                            self.metrics['jailbreak_attempts'] = max(0, self.metrics['jailbreak_attempts'] - 1)
-                        jailbreak_detected = False
-                        logger.info("🔍 Suppressed jailbreak detection: Privacy violation with low-confidence/encoding-based jailbreak (likely PII)")
+            # If privacy violation detected, ALWAYS suppress jailbreak (PII triggers false positive obfuscation)
+            if privacy_has_violations and jailbreak_detected:
+                # Privacy violations (phone numbers, emails, etc.) trigger false positive "encoding" detections
+                # ALWAYS suppress jailbreak when privacy is the real issue
+                result['detections']['jailbreak']['detected'] = False
+                result['detections']['jailbreak']['severity'] = 'low'
+                result['detections']['jailbreak']['confidence'] = 0.0
+                result['detections']['jailbreak']['explanation'] = 'Detection suppressed: Privacy violation detected. PII patterns incorrectly flagged as encoding obfuscation.'
+                if 'jailbreak_attempt' in result['violations']:
+                    result['violations'].remove('jailbreak_attempt')
+                    self.metrics['jailbreak_attempts'] = max(0, self.metrics['jailbreak_attempts'] - 1)
+                jailbreak_detected = False
+                logger.info("🔒 Suppressed jailbreak: Privacy violation detected (PII incorrectly flagged as obfuscation)")
             
             # Add jailbreak to violations if still detected after filtering
             if result['detections'].get('jailbreak', {}).get('detected'):
