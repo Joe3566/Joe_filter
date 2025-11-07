@@ -171,17 +171,36 @@ class IntegratedSystem:
                     self.metrics['openai_detections'] += 1
             
             # 2. Enhanced Jailbreak Detection (Secondary - Jailbreak Specific)
+            # Returns three classifications: True (jailbreak), 'hate_speech' (hate speech only), False (safe)
             if self.enhanced_detector:
                 jailbreak_result = self.enhanced_detector.analyze_enhanced(text)
                 
+                # Handle three-way classification
+                is_jailbreak = jailbreak_result.is_jailbreak == True
+                is_hate_speech_only = jailbreak_result.is_jailbreak == 'hate_speech'
+                
                 result['detections']['jailbreak'] = {
-                    'detected': jailbreak_result.is_jailbreak,
+                    'detected': is_jailbreak,
                     'severity': jailbreak_result.severity.value,
                     'confidence': jailbreak_result.confidence,
                     'techniques': [t.value for t in jailbreak_result.techniques],
                     'explanation': jailbreak_result.explanation,
                     'patterns': jailbreak_result.patterns_detected[:5]
                 }
+                
+                # Handle hate speech classification separately
+                if is_hate_speech_only:
+                    result['detections']['hate_speech'] = {
+                        'detected': True,
+                        'severity': jailbreak_result.severity.value,
+                        'confidence': jailbreak_result.confidence,
+                        'explanation': jailbreak_result.explanation,
+                        'patterns': jailbreak_result.patterns_detected[:5]
+                    }
+                    result['is_compliant'] = False
+                    result['violations'].append('hate_speech')
+                    result['overall_risk_score'] = max(result['overall_risk_score'], jailbreak_result.confidence)
+                    self.metrics['jailbreak_attempts'] += 1  # Count hate speech in metrics
                 
                 # Token anomaly analysis
                 if jailbreak_result.token_anomaly_analysis['has_anomalies']:
@@ -193,7 +212,7 @@ class IntegratedSystem:
                     self.metrics['token_anomalies'] += 1
                 
                 # Update metrics - store for later smart filtering
-                jailbreak_detected = jailbreak_result.is_jailbreak
+                jailbreak_detected = is_jailbreak
                 jailbreak_confidence = jailbreak_result.confidence
             
             # 3. Context-Specific Threat Detection

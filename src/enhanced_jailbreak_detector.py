@@ -550,14 +550,28 @@ class EnhancedJailbreakDetector(AdvancedJailbreakDetector):
         # Get threat intelligence context
         threat_context = self.threat_intel.get_statistics()
         
-        # Determine if jailbreak/threat detected
-        is_threat_detected = (
-            base_result.is_jailbreak or 
-            multilang_result['is_multilingual_attack'] or 
-            (anomaly_result['has_anomalies'] and anomaly_result['anomaly_score'] > 0.7) or
-            (context_threat_result and context_threat_result.get('detected')) or
-            (semantic_result and semantic_result.get('is_toxic'))
-        )
+        # Determine if jailbreak/threat detected with three classifications:
+        # True = jailbreak, 'hate_speech' = hate speech only, False = safe
+        is_threat_detected = False
+        
+        # Check for hate speech FIRST (if no jailbreak detected)
+        if semantic_result and semantic_result.get('is_toxic'):
+            # If it's ONLY hate speech (no jailbreak patterns), classify as hate_speech
+            if not base_result.is_jailbreak and \
+               not multilang_result.get('is_multilingual_attack') and \
+               not (context_threat_result and context_threat_result.get('detected')) and \
+               not (anomaly_result.get('has_anomalies') and anomaly_result.get('anomaly_score', 0) > 0.7):
+                is_threat_detected = 'hate_speech'
+            else:
+                # Hate speech + jailbreak = jailbreak (higher priority)
+                is_threat_detected = True
+        elif (
+                base_result.is_jailbreak
+                or multilang_result.get('is_multilingual_attack')
+                or (anomaly_result.get('has_anomalies') and anomaly_result.get('anomaly_score', 0) > 0.7)
+                or (context_threat_result and context_threat_result.get('detected'))
+        ):
+            is_threat_detected = True
         
         # Create enhanced result
         enhanced_result = EnhancedJailbreakResult(
