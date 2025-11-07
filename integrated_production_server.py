@@ -354,6 +354,11 @@ class IntegratedSystem:
                     result['recommendations'].append(
                         "BLOCK: OpenAI Moderation flagged content. Industry-standard violation detected."
                     )
+                if 'hate_speech' in result['violations']:
+                    hate_det = result['detections'].get('hate_speech', {})
+                    result['recommendations'].append(
+                        f"BLOCK IMMEDIATELY: Hate speech detected with {hate_det.get('confidence', 0)*100:.1f}% confidence. Content promotes hatred or discrimination."
+                    )
                 if 'jailbreak_attempt' in result['violations']:
                     result['recommendations'].append(
                         "BLOCK: Critical jailbreak attempt detected. Do not process this request."

@@ -734,6 +734,23 @@
                 return '✅ <strong>Analysis Complete:</strong> The submitted content has been thoroughly analyzed across multiple detection systems including jailbreak detection, privacy screening, context-specific threat analysis, and semantic toxicity evaluation. No policy violations or security concerns were identified. This content is safe to process.';
             }
             
+            // Hate Speech Detection Explanation
+            const hateDetection = analysis.detections && analysis.detections.hate_speech;
+            if (hateDetection && hateDetection.detected) {
+                const severity = hateDetection.severity || 'high';
+                let hateExplanation = `<div style="margin-bottom: 1rem;"><strong>⚠️ Hate Speech Detected:</strong> `;
+                
+                hateExplanation += `Content identified as hate speech with ${(hateDetection.confidence * 100).toFixed(1)}% confidence. `;
+                
+                if (hateDetection.explanation) {
+                    hateExplanation += hateDetection.explanation;
+                } else {
+                    hateExplanation += 'This content promotes hatred, discrimination, or violence against individuals or groups based on protected characteristics.';
+                }
+                hateExplanation += `</div>`;
+                explanations.push(hateExplanation);
+            }
+            
             // Jailbreak Detection Explanation
             const jbDetection = analysis.detections && analysis.detections.jailbreak;
             if (jbDetection && jbDetection.detected) {
@@ -841,6 +858,13 @@
                 return '<strong>✅ ALLOW:</strong> Content is compliant and safe to process. No policy violations detected.';
             }
             
+            // Hate Speech Detection
+            const hateDetection = analysis.detections && analysis.detections.hate_speech;
+            if (hateDetection && hateDetection.detected) {
+                const confidence = (hateDetection.confidence * 100).toFixed(1);
+                recommendations.push(`🚫 <strong>BLOCK IMMEDIATELY:</strong> Hate speech detected with ${confidence}% confidence. Content promotes hatred or discrimination.`);
+            }
+            
             // Jailbreak Detection
             const jbDetection = analysis.detections && analysis.detections.jailbreak;
             if (jbDetection && jbDetection.detected) {
@@ -923,6 +947,30 @@
     
     let violationsHTML = '';
     let violationCount = 0;
+    
+    // Hate Speech Detection
+    const hate = (analysis.detections && analysis.detections.hate_speech) || {};
+    if (hate.detected) {
+        violationCount++;
+        const severity = hate.severity || 'high';
+        const config = { icon: '⚠️', color: '#dc2626', bgGradient: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)', borderColor: '#ef4444' };
+        
+        violationsHTML += `
+            <div style="background: ${config.bgGradient}; border-left: 4px solid ${config.borderColor}; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem;">
+                <h4 style="margin: 0 0 1rem 0; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem; color: ${config.color};">
+                    ${config.icon} Hate Speech Detected - ${severity.toUpperCase()} Severity
+                </h4>
+                <p><strong>Confidence:</strong> ${(hate.confidence * 100).toFixed(1)}%</p>
+                ${hate.patterns && hate.patterns.length > 0 ? `
+                    <p style="margin-top: 0.75rem;"><strong>Matched Patterns:</strong></p>
+                    <div style="margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.25rem;">
+                        ${hate.patterns.map(p => `<span style="background: rgba(0,0,0,0.1); padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-family: monospace;">${p}</span>`).join('')}
+                    </div>
+                ` : ''}
+                <p style="margin-top: 1rem; font-size: 0.875rem; line-height: 1.6; border-top: 1px solid rgba(0,0,0,0.1); padding-top: 1rem;">${hate.explanation || 'Content promotes hatred, discrimination, or violence against individuals or groups.'}</p>
+            </div>
+        `;
+    }
     
     // Jailbreak Detection
     const jb = (analysis.detections && analysis.detections.jailbreak) || {};
