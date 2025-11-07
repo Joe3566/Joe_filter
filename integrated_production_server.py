@@ -190,17 +190,24 @@ class IntegratedSystem:
                 
                 # Handle hate speech classification separately
                 if is_hate_speech_only:
-                    result['detections']['hate_speech'] = {
+                    hate_speech_data = {
                         'detected': True,
                         'severity': jailbreak_result.severity.value,
                         'confidence': jailbreak_result.confidence,
                         'explanation': jailbreak_result.explanation,
                         'patterns': jailbreak_result.patterns_detected[:5]
                     }
+                    result['detections']['hate_speech'] = hate_speech_data
+                    
+                    # Also add semantic_analysis for UI compatibility
+                    if jailbreak_result.semantic_analysis:
+                        result['detections']['semantic_analysis'] = jailbreak_result.semantic_analysis
+                    
                     result['is_compliant'] = False
                     result['violations'].append('hate_speech')
                     result['overall_risk_score'] = max(result['overall_risk_score'], jailbreak_result.confidence)
                     self.metrics['jailbreak_attempts'] += 1  # Count hate speech in metrics
+                    logger.info(f"🚨 Hate speech detected: {jailbreak_result.confidence:.1%} confidence")
                 
                 # Token anomaly analysis
                 if jailbreak_result.token_anomaly_analysis['has_anomalies']:
