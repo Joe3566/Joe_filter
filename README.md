@@ -102,9 +102,7 @@ result = privacy.detect("Text with potential PII")
 
 Contributions welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) first.
 
-## 📜 License
 
-MIT License - see [LICENSE](LICENSE) file for details.
 
 ## 📞 Contact
 
