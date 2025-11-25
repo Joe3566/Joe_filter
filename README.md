@@ -3,7 +3,6 @@
 A comprehensive, production-ready compliance filtering system for Large Language Models (LLMs) that detects and blocks harmful content, jailbreak attempts, and privacy violations.
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Tests](https://img.shields.io/badge/tests-21%2F21%20passing-brightgreen.svg)](tests/)
 
 ## 🎯 Overview
